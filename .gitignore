@@ -1,0 +1,21 @@
+# ===== Frontend =====
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/*.log
+
+# ===== Backend (nanti) =====
+backend/node_modules/
+backend/.env
+
+# ===== Umum =====
+.DS_Store
+Thumbs.db
+*.log
+.vscode/*
+!.vscode/extensions.json
+
+# ===== Backup =====
+*-backup/
+*.backup
