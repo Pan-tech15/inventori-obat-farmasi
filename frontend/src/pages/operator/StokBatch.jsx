@@ -33,7 +33,7 @@ export default function StokBatch() {
 
       return matchSearch && matchStatus && matchJenis;
     })
-    .sort((a, b) => new Date(a.expiry) - new Date(b.expiry)); // FEFO: yang paling dekat expiry di atas
+    .sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
 
   const totalStok = filtered.reduce((s, b) => s + b.stok, 0);
   const totalNilai = filtered.reduce((s, b) => s + b.stok * b.hargaSatuan, 0);
@@ -107,12 +107,11 @@ export default function StokBatch() {
           style={{ fontSize: 12, marginBottom: 12 }}
         >
           <strong>Panduan warna sisa waktu:</strong>{" "}
-          <span className="badge badge-danger">Merah</span> ≤ 30 hari atau
-          kedaluwarsa · <span className="badge badge-warning">Oranye</span>{" "}
-          31–90 hari · <span className="badge badge-caution">Kuning</span>{" "}
-          91–210 hari · <span className="badge badge-success">Hijau</span> masih
-          jauh dari expiry. Warna hanya panduan prioritas — semua batch normal
-          tetap bisa didistribusikan.
+          <span className="badge badge-danger">Merah</span> ≤ 6 bulan atau
+          kedaluwarsa · <span className="badge badge-warning">Kuning</span> ≤ 8
+          bulan · <span className="badge badge-success">Hijau</span> &gt; 8
+          bulan. Warna hanya panduan prioritas — semua batch normal tetap bisa
+          didistribusikan.
         </div>
 
         <div className="table-wrap">
@@ -133,7 +132,7 @@ export default function StokBatch() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <div className="empty-state">
                       Tidak ada batch yang sesuai filter.
                     </div>
@@ -155,11 +154,7 @@ export default function StokBatch() {
                       </td>
                       <td>
                         <span
-                          className={`badge ${
-                            info.jenis === "Program"
-                              ? "badge-info"
-                              : "badge-warning"
-                          }`}
+                          className={`badge ${info.jenis === "Program" ? "badge-info" : "badge-warning"}`}
                         >
                           {info.jenis === "Program"
                             ? `Program: ${info.program}`
@@ -198,11 +193,7 @@ export default function StokBatch() {
                       <td style={{ fontSize: 12 }}>{b.pabrik}</td>
                       <td>
                         <span
-                          className={`badge ${
-                            exp.status === "normal"
-                              ? "badge-success"
-                              : "badge-danger"
-                          }`}
+                          className={`badge ${exp.status === "normal" ? "badge-success" : "badge-danger"}`}
                         >
                           {exp.status === "normal" ? "Normal" : "Kedaluwarsa"}
                         </span>

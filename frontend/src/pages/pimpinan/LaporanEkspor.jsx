@@ -3,16 +3,18 @@ import { mockObat } from "../../data/mockData";
 import {
   mockBatchObat,
   mockPenerimaan,
-  mockSBBK,
   mockStockOpname,
   mockRiwayatTransaksi,
+  mockAdjustment,
+  getExpiryInfo,
+  getAllSBBK,
 } from "../../data/mockOperator";
 import { exportCSV, exportPDFViaPrint } from "../../utils/export";
 
-const daysUntil = (s) => Math.ceil((new Date(s) - new Date()) / 86400000);
 const fmt = (n) => Number(n || 0).toLocaleString("id-ID");
 const rupiah = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
-const jenisOf = (kode) => mockObat.find((o) => o.kode === kode)?.jenis || "-";
+const jenisOf = (kodeObat) =>
+  mockObat.find((o) => o.kode === kodeObat)?.jenis || "-";
 
 const LAPORAN = [
   {
@@ -21,11 +23,22 @@ const LAPORAN = [
     dateField: null,
     useJenisFilter: true,
     build: () =>
-      mockBatchObat.map((b) => ({ ...b, jenis: jenisOf(b.kodeObat) })),
+      mockBatchObat.map((b) => ({
+        ...b,
+        jenis: jenisOf(b.kodeObat),
+        exp: getExpiryInfo(b),
+      })),
     columns: [
       { key: "namaObat", label: "Nama Obat" },
       { key: "noBatch", label: "No Batch" },
       { key: "expiry", label: "Expiry" },
+      {
+        key: "exp",
+        label: "Status Kedaluwarsa",
+        render: (r) => (
+          <span className={`badge ${r.exp.badgeClass}`}>{r.exp.label}</span>
+        ),
+      },
       {
         key: "stok",
         label: "Stok",
@@ -34,15 +47,14 @@ const LAPORAN = [
       },
       { key: "satuan", label: "Satuan" },
       { key: "jenis", label: "Jenis" },
+      {
+        key: "hargaSatuan",
+        label: "Harga Satuan",
+        align: "right",
+        render: (r) => rupiah(r.hargaSatuan),
+      },
       { key: "pabrik", label: "Pabrik" },
       { key: "sumberAnggaran", label: "Sumber Anggaran" },
-      {
-        key: "nilai",
-        label: "Nilai",
-        align: "right",
-        render: (r) => rupiah(r.stok * r.hargaSatuan),
-      },
-      { key: "status", label: "Status" },
     ],
   },
   {
@@ -69,13 +81,7 @@ const LAPORAN = [
         align: "right",
         render: (r) => (r.keluar > 0 ? `-${fmt(r.keluar)}` : "-"),
       },
-      {
-        key: "saldo",
-        label: "Saldo",
-        align: "right",
-        render: (r) => fmt(r.saldo),
-      },
-      { key: "petugas", label: "Petugas" },
+      { key: "keterangan", label: "Keterangan" },
     ],
   },
   {
@@ -92,7 +98,6 @@ const LAPORAN = [
       { key: "sumberAnggaran", label: "Sumber Anggaran" },
       { key: "totalItem", label: "Item", align: "right" },
       { key: "status", label: "Status" },
-      { key: "petugas", label: "Petugas" },
     ],
   },
   {
@@ -100,20 +105,28 @@ const LAPORAN = [
     label: "Laporan SBBK / Distribusi",
     dateField: "tanggal",
     useJenisFilter: false,
-    build: () => mockSBBK,
+    build: () => getAllSBBK().filter((s) => s.status === "terbit"),
     columns: [
       { key: "nomor", label: "Nomor SBBK" },
       { key: "tanggal", label: "Tanggal" },
       { key: "ifk", label: "IFK" },
-      { key: "totalItem", label: "Item", align: "right" },
-      { key: "status", label: "Status" },
+      {
+        key: "permintaanNomor",
+        label: "Untuk Permintaan",
+        render: (r) => r.permintaanNomor || "-",
+      },
+      {
+        key: "totalItem",
+        label: "Item",
+        align: "right",
+        render: (r) => r.items.length,
+      },
       {
         key: "cetakUlangKe",
         label: "Cetak Ulang",
         align: "right",
-        render: (r) => `${r.cetakUlangKe}×`,
+        render: (r) => `${r.cetakUlangKe || 0}×`,
       },
-      { key: "petugas", label: "Petugas" },
     ],
   },
   {
@@ -126,23 +139,20 @@ const LAPORAN = [
         .map((b) => ({
           ...b,
           jenis: jenisOf(b.kodeObat),
-          sisaHari: daysUntil(b.expiry),
+          exp: getExpiryInfo(b),
         }))
-        .filter(
-          (b) =>
-            b.status !== "expired" &&
-            b.sisaHari <= (b.kategori === "Fast Moving" ? 210 : 90),
-        )
-        .sort((a, b) => a.sisaHari - b.sisaHari),
+        .filter((b) => b.exp.color !== "safe")
+        .sort((a, b) => a.exp.days - b.exp.days),
     columns: [
       { key: "namaObat", label: "Obat" },
       { key: "noBatch", label: "Batch" },
       { key: "expiry", label: "Expiry" },
       {
-        key: "sisaHari",
-        label: "Sisa Hari",
-        align: "right",
-        render: (r) => (r.sisaHari < 0 ? "expired" : `${r.sisaHari}h`),
+        key: "exp",
+        label: "Sisa Waktu",
+        render: (r) => (
+          <span className={`badge ${r.exp.badgeClass}`}>{r.exp.label}</span>
+        ),
       },
       {
         key: "stok",
@@ -150,30 +160,6 @@ const LAPORAN = [
         align: "right",
         render: (r) => fmt(r.stok),
       },
-      { key: "kategori", label: "Kategori" },
-    ],
-  },
-  {
-    id: "karantina",
-    label: "Laporan Obat Karantina",
-    dateField: null,
-    useJenisFilter: true,
-    build: () =>
-      mockBatchObat
-        .filter((b) => b.status === "karantina")
-        .map((b) => ({ ...b, jenis: jenisOf(b.kodeObat) })),
-    columns: [
-      { key: "namaObat", label: "Obat" },
-      { key: "noBatch", label: "Batch" },
-      { key: "expiry", label: "Expiry" },
-      {
-        key: "stok",
-        label: "Stok",
-        align: "right",
-        render: (r) => fmt(r.stok),
-      },
-      { key: "satuan", label: "Satuan" },
-      { key: "pabrik", label: "Pabrik" },
     ],
   },
   {
@@ -187,7 +173,6 @@ const LAPORAN = [
           ...it,
           periode: so.periode,
           tanggal: so.tanggal,
-          petugas: so.petugas,
         })),
       ),
     columns: [
@@ -213,29 +198,30 @@ const LAPORAN = [
         align: "right",
         render: (r) => (r.selisih > 0 ? `+${r.selisih}` : r.selisih),
       },
+      { key: "kategoriAlasan", label: "Kategori" },
       { key: "alasan", label: "Alasan" },
     ],
   },
   {
-    id: "void",
-    label: "Laporan Void & Adjustment",
+    id: "penyesuaian",
+    label: "Laporan Penyesuaian Stok",
     dateField: "tanggal",
     useJenisFilter: false,
-    build: () => mockRiwayatVoidAdjustment,
+    build: () => mockAdjustment,
     columns: [
       { key: "tanggal", label: "Tanggal" },
-      { key: "jenis", label: "Jenis" },
       { key: "referensi", label: "Referensi" },
       { key: "namaObat", label: "Obat" },
       { key: "noBatch", label: "Batch" },
+      { key: "jenis", label: "Jenis" },
       {
         key: "jumlah",
         label: "Jumlah",
         align: "right",
         render: (r) => fmt(r.jumlah),
       },
+      { key: "kategoriAlasan", label: "Kategori" },
       { key: "alasan", label: "Alasan" },
-      { key: "petugas", label: "Petugas" },
     ],
   },
 ];
@@ -290,8 +276,7 @@ export default function LaporanEkspor() {
         <div>
           <h2>Laporan & Ekspor</h2>
           <p>
-            Semua laporan tersedia untuk Pimpinan. Ekspor ke Excel (CSV) atau
-            PDF (via dialog cetak browser).
+            Semua laporan tersedia untuk Pimpinan. Ekspor ke CSV atau cetak PDF.
           </p>
         </div>
       </div>
@@ -361,7 +346,7 @@ export default function LaporanEkspor() {
             onClick={handleExportCSV}
             disabled={rows.length === 0}
           >
-            Ekspor Excel (CSV)
+            Ekspor CSV
           </button>
           <button
             className="btn"

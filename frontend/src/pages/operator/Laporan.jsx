@@ -10,13 +10,11 @@ import {
   getAllSBBK,
 } from "../../data/mockOperator";
 
-// ===== Helper =====
 const fmt = (n) => Number(n || 0).toLocaleString("id-ID");
 const rupiah = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
 const jenisOf = (kodeObat) =>
   mockObat.find((o) => o.kode === kodeObat)?.jenis || "-";
 
-// ===== Konfigurasi tiap jenis laporan =====
 const LAPORAN = [
   {
     id: "stok",
@@ -48,14 +46,14 @@ const LAPORAN = [
       },
       { key: "satuan", label: "Satuan" },
       { key: "jenis", label: "Jenis" },
+      {
+        key: "hargaSatuan",
+        label: "Harga Satuan",
+        align: "right",
+        render: (r) => rupiah(r.hargaSatuan),
+      },
       { key: "pabrik", label: "Pabrik" },
       { key: "sumberAnggaran", label: "Sumber Anggaran" },
-      {
-        key: "nilai",
-        label: "Nilai Stok",
-        align: "right",
-        render: (r) => rupiah(r.stok * r.hargaSatuan),
-      },
     ],
     summary: (rows) => [
       { label: "Jumlah Batch", value: fmt(rows.length) },
@@ -323,35 +321,34 @@ export default function Laporan() {
   const [periodeAwal, setPeriodeAwal] = useState("2026-01-01");
   const [periodeAkhir, setPeriodeAkhir] = useState("2026-12-31");
   const [filterJenisObat, setFilterJenisObat] = useState("");
-  const [format, setFormat] = useState("pdf");
   const [preview, setPreview] = useState(false);
 
   const config = LAPORAN.find((l) => l.id === jenis);
   const allRows = useMemo(() => config.build(), [config]);
 
-  const rows = useMemo(() => {
-    return allRows.filter((r) => {
-      if (
-        config.useJenisFilter &&
-        filterJenisObat &&
-        r.jenis !== filterJenisObat
-      )
-        return false;
-      if (config.dateField && r[config.dateField]) {
-        const tgl = String(r[config.dateField]).slice(0, 10);
-        if (periodeAwal && tgl < periodeAwal) return false;
-        if (periodeAkhir && tgl > periodeAkhir) return false;
-      }
-      return true;
-    });
-  }, [allRows, config, filterJenisObat, periodeAwal, periodeAkhir]);
+  const rows = useMemo(
+    () =>
+      allRows.filter((r) => {
+        if (
+          config.useJenisFilter &&
+          filterJenisObat &&
+          r.jenis !== filterJenisObat
+        )
+          return false;
+        if (config.dateField && r[config.dateField]) {
+          const tgl = String(r[config.dateField]).slice(0, 10);
+          if (periodeAwal && tgl < periodeAwal) return false;
+          if (periodeAkhir && tgl > periodeAkhir) return false;
+        }
+        return true;
+      }),
+    [allRows, config, filterJenisObat, periodeAwal, periodeAkhir],
+  );
 
   const summary = config.summary(rows);
 
-  const handlePreview = () => setPreview(true);
-
   const handleEkspor = () => {
-    if (format === "excel") {
+    if (config.columns) {
       const header = config.columns.map((c) => `"${c.label}"`).join(";");
       const body = rows
         .map((r) =>
@@ -372,10 +369,6 @@ export default function Laporan() {
       a.download = `${config.id}_${periodeAwal}_sd_${periodeAkhir}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } else {
-      alert(
-        "Ekspor PDF memerlukan backend (mis. Puppeteer/pdfkit). Untuk demo, gunakan Excel/CSV.",
-      );
     }
   };
 
@@ -442,18 +435,10 @@ export default function Laporan() {
               </select>
             </div>
           )}
-
-          <div className="form-group">
-            <label>Format Ekspor</label>
-            <select value={format} onChange={(e) => setFormat(e.target.value)}>
-              <option value="pdf">PDF</option>
-              <option value="excel">Excel / CSV</option>
-            </select>
-          </div>
         </div>
 
         <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-          <button className="btn btn-primary" onClick={handlePreview}>
+          <button className="btn btn-primary" onClick={() => setPreview(true)}>
             Preview
           </button>
           <button
@@ -461,7 +446,7 @@ export default function Laporan() {
             onClick={handleEkspor}
             disabled={!preview || rows.length === 0}
           >
-            Ekspor {format === "excel" ? "CSV" : "PDF"}
+            Ekspor CSV
           </button>
         </div>
 
@@ -478,7 +463,7 @@ export default function Laporan() {
         <>
           <div className="info-banner warning">
             <strong>PREVIEW — DATA SIMULASI.</strong> Angka pada tabel ini
-            berasal dari data contoh (mock), bukan basis data produksi.
+            berasal dari data contoh, bukan basis data produksi.
           </div>
 
           <div className="stat-grid">
