@@ -1,31 +1,44 @@
 import { useNavigate } from "react-router-dom";
 import {
   mockBatchObat,
-  mockSBBK,
   mockStockOpname,
-  mockRiwayatVoidAdjustment,
+  mockAdjustment,
+  getExpiryInfo,
+  getAllSBBK,
 } from "../../data/mockOperator";
 
-const daysUntil = (s) => Math.ceil((new Date(s) - new Date()) / 86400000);
 const fmt = (n) => Number(n || 0).toLocaleString("id-ID");
+const rupiah = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
+
+// Gabungkan data mock dengan localStorage (untuk data yang ditambah operator)
+const getAllOpnames = () => {
+  const local = JSON.parse(localStorage.getItem("opnameList") || "[]");
+  return [...mockStockOpname, ...local].sort(
+    (a, b) => new Date(b.tanggal) - new Date(a.tanggal),
+  );
+};
+
+const getAllAdjustments = () => {
+  const local = JSON.parse(localStorage.getItem("adjustmentList") || "[]");
+  return [...mockAdjustment, ...local].sort(
+    (a, b) => new Date(b.tanggal) - new Date(a.tanggal),
+  );
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const session = JSON.parse(localStorage.getItem("session") || "{}");
 
+  // Statistik batch
   const totalBatchAktif = mockBatchObat.filter(
-    (b) => b.status === "normal",
+    (b) => getExpiryInfo(b).status === "normal",
   ).length;
   const kritisExpiry = mockBatchObat.filter((b) => {
-    const d = daysUntil(b.expiry);
-    const ambang = b.kategori === "Fast Moving" ? 210 : 90;
-    return b.status === "normal" && d > 0 && d <= ambang;
+    const exp = getExpiryInfo(b);
+    return exp.status === "normal" && exp.color !== "safe";
   }).length;
-  const karantina = mockBatchObat.filter(
-    (b) => b.status === "karantina",
-  ).length;
   const expired = mockBatchObat.filter(
-    (b) => b.status === "expired" || daysUntil(b.expiry) < 0,
+    (b) => getExpiryInfo(b).status === "expired",
   ).length;
   const totalUnitStok = mockBatchObat.reduce((s, b) => s + b.stok, 0);
   const totalNilaiStok = mockBatchObat.reduce(
@@ -33,17 +46,24 @@ export default function Dashboard() {
     0,
   );
 
-  const sbbkTerbit = mockSBBK.filter((s) => s.status === "terbit").length;
-  const sbbkVoid = mockSBBK.filter((s) => s.status === "void").length;
+  // SBBK terbit (gabungan mock + localStorage)
+  const sbbkTerbit = getAllSBBK().filter((s) => s.status === "terbit").length;
 
-  const opnameTerakhir = mockStockOpname[0];
+  // Opname terakhir
+  const allOpnames = getAllOpnames();
+  const opnameTerakhir = allOpnames[0];
   const totalVarianceTerakhir = opnameTerakhir?.totalVariance || 0;
 
-  // Perhatian Pimpinan: koreksi & temuan terbaru
-  const koreksiTerbaru = mockRiwayatVoidAdjustment.slice(0, 4);
+  // Koreksi terbaru: penyesuaian stok (gabungan mock + localStorage)
+  const koreksiTerbaru = getAllAdjustments().slice(0, 4);
+
+  // Batch kritis: expired atau mendekati expiry
   const batchKritis = mockBatchObat
-    .filter((b) => b.status !== "normal" || daysUntil(b.expiry) <= 90)
-    .sort((a, b) => daysUntil(a.expiry) - daysUntil(b.expiry))
+    .filter((b) => {
+      const exp = getExpiryInfo(b);
+      return exp.status === "expired" || exp.color !== "safe";
+    })
+    .sort((a, b) => getExpiryInfo(a).days - getExpiryInfo(b).days)
     .slice(0, 5);
 
   return (
@@ -69,25 +89,18 @@ export default function Dashboard() {
           <div className="label">Batch Aktif</div>
           <div className="value">{fmt(totalBatchAktif)}</div>
           <div className="desc">
-            {fmt(totalUnitStok)} unit · Rp {fmt(totalNilaiStok)}
+            {fmt(totalUnitStok)} unit · {rupiah(totalNilaiStok)}
           </div>
         </div>
         <div className="stat-card">
-          <div className="label">Mendekati Expiry</div>
+          <div className="label">Mendekati Kedaluwarsa</div>
           <div className="value" style={{ color: "var(--warning)" }}>
             {fmt(kritisExpiry)}
           </div>
-          <div className="desc">7 bln (fast) / 3 bln (slow)</div>
+          <div className="desc">≤ 8 bulan (kuning) · ≤ 6 bulan (merah)</div>
         </div>
         <div className="stat-card">
-          <div className="label">Karantina</div>
-          <div className="value" style={{ color: "var(--warning)" }}>
-            {fmt(karantina)}
-          </div>
-          <div className="desc">disendirikan</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Expired</div>
+          <div className="label">Kedaluwarsa</div>
           <div className="value" style={{ color: "var(--danger)" }}>
             {fmt(expired)}
           </div>
@@ -96,7 +109,7 @@ export default function Dashboard() {
         <div className="stat-card">
           <div className="label">SBBK Terbit</div>
           <div className="value">{fmt(sbbkTerbit)}</div>
-          <div className="desc">{fmt(sbbkVoid)} void</div>
+          <div className="desc">distribusi ke kab/kota</div>
         </div>
         <div className="stat-card">
           <div className="label">Variance Opname Terakhir</div>
@@ -109,7 +122,9 @@ export default function Dashboard() {
                   : "var(--warning)",
             }}
           >
-            {fmt(totalVarianceTerakhir)}
+            {totalVarianceTerakhir > 0
+              ? `+${fmt(totalVarianceTerakhir)}`
+              : fmt(totalVarianceTerakhir)}
           </div>
           <div className="desc">{opnameTerakhir?.periode || "-"}</div>
         </div>
@@ -124,7 +139,9 @@ export default function Dashboard() {
             marginBottom: 12,
           }}
         >
-          <h3 style={{ fontSize: 15 }}>Perhatian Pimpinan — Koreksi Terbaru</h3>
+          <h3 style={{ fontSize: 15 }}>
+            Perhatian Pimpinan — Penyesuaian Terbaru
+          </h3>
           <button
             className="btn btn-sm no-print"
             onClick={() => navigate("/pimpinan/transaksi")}
@@ -134,7 +151,7 @@ export default function Dashboard() {
         </div>
         {koreksiTerbaru.length === 0 ? (
           <div className="empty-state">
-            Tidak ada koreksi transaksi tercatat.
+            Tidak ada penyesuaian stok tercatat.
           </div>
         ) : (
           <div className="table-wrap">
@@ -142,12 +159,12 @@ export default function Dashboard() {
               <thead>
                 <tr>
                   <th>Tanggal</th>
-                  <th>Jenis</th>
                   <th>Referensi</th>
                   <th>Obat</th>
-                  <th>Jumlah</th>
+                  <th>Batch</th>
+                  <th style={{ textAlign: "right" }}>Jumlah</th>
+                  <th>Kategori</th>
                   <th>Alasan</th>
-                  <th>Petugas</th>
                 </tr>
               </thead>
               <tbody>
@@ -157,19 +174,22 @@ export default function Dashboard() {
                       {r.tanggal}
                     </td>
                     <td>
-                      <span
-                        className={`badge ${r.jenis === "Void" ? "badge-danger" : "badge-warning"}`}
-                      >
-                        {r.jenis}
-                      </span>
-                    </td>
-                    <td>
                       <code>{r.referensi}</code>
                     </td>
-                    <td>{r.namaObat}</td>
-                    <td>{fmt(r.jumlah)}</td>
+                    <td style={{ fontSize: 12 }}>{r.namaObat}</td>
+                    <td>
+                      <code style={{ fontSize: 11 }}>{r.noBatch}</code>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <span
+                        className={`badge ${r.jenis === "tambah" ? "badge-success" : "badge-warning"}`}
+                      >
+                        {r.jenis === "tambah" ? "+" : "−"}
+                        {fmt(r.jumlah)}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 12 }}>{r.kategoriAlasan || "-"}</td>
                     <td style={{ fontSize: 12 }}>{r.alasan}</td>
-                    <td>{r.petugas}</td>
                   </tr>
                 ))}
               </tbody>
@@ -188,7 +208,7 @@ export default function Dashboard() {
           }}
         >
           <h3 style={{ fontSize: 15 }}>
-            Batch Kritis (Karantina / Expired / Expiry Dekat)
+            Batch Kritis (Kedaluwarsa / Mendekati Kedaluwarsa)
           </h3>
           <button
             className="btn btn-sm no-print"
@@ -207,14 +227,14 @@ export default function Dashboard() {
                   <th>Obat</th>
                   <th>Batch</th>
                   <th>Expiry</th>
-                  <th>Sisa Hari</th>
-                  <th>Stok</th>
+                  <th>Sisa Waktu</th>
+                  <th style={{ textAlign: "right" }}>Stok</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {batchKritis.map((b) => {
-                  const d = daysUntil(b.expiry);
+                  const exp = getExpiryInfo(b);
                   return (
                     <tr key={b.id}>
                       <td>{b.namaObat}</td>
@@ -223,20 +243,23 @@ export default function Dashboard() {
                       </td>
                       <td>{b.expiry}</td>
                       <td>
+                        <span className={`badge ${exp.badgeClass}`}>
+                          {exp.label}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {fmt(b.stok)}{" "}
                         <span
-                          className={`badge ${d < 0 ? "badge-danger" : d <= 90 ? "badge-danger" : "badge-warning"}`}
+                          style={{ fontSize: 11, color: "var(--gray-600)" }}
                         >
-                          {d < 0 ? "expired" : `${d} hari`}
+                          {b.satuan}
                         </span>
                       </td>
                       <td>
-                        {fmt(b.stok)} {b.satuan}
-                      </td>
-                      <td>
                         <span
-                          className={`badge ${b.status === "normal" ? "badge-success" : b.status === "karantina" ? "badge-warning" : "badge-danger"}`}
+                          className={`badge ${exp.status === "normal" ? "badge-success" : "badge-danger"}`}
                         >
-                          {b.status}
+                          {exp.status === "normal" ? "Normal" : "Kedaluwarsa"}
                         </span>
                       </td>
                     </tr>

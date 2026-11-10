@@ -18,7 +18,7 @@ const menuOperator = [
   { to: "/operator/permintaan", label: "Permintaan Kab/Kota" },
   { section: "TRANSAKSI" },
   { to: "/operator/penerimaan", label: "Penerimaan Obat" },
-  { to: "/operator/sbbk", label: "SBBK / Distribusi" },
+  { to: "/operator/sbbk", label: "Distribusi" },
   { section: "PERSEDIAAN" },
   { to: "/operator/stok", label: "Stok & Batch" },
   { to: "/operator/kartu-stok", label: "Kartu Stok" },

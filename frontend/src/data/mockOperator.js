@@ -8,10 +8,6 @@ import { mockObat } from "./mockData";
 // ============================================================
 
 export const mockBatchObat = [
-  // Parasetamol — Fast Moving
-  //   B240101: awal 1.020 + masuk 5.000 − keluar 1.020 (SBBK 1.000 + adj 20) = 5.000 ✓
-  //   B240205: awal 2.500 + masuk 0 − keluar 500 (SBBK) = 2.000 ✓
-  //            (penerimaan 2.100 dari SPB/2026/002 belum di-ACC karena discrepancy)
   {
     id: 1,
     obatId: 1,
@@ -26,7 +22,6 @@ export const mockBatchObat = [
     sumberAnggaran: "APBD Provinsi",
     hargaSatuan: 250,
     status: "normal",
-    kategori: "Fast Moving",
   },
   {
     id: 2,
@@ -42,12 +37,7 @@ export const mockBatchObat = [
     sumberAnggaran: "APBD Provinsi",
     hargaSatuan: 250,
     status: "normal",
-    kategori: "Fast Moving",
   },
-
-  // Amoksisilin — Fast Moving
-  //   B240150: awal 0 + masuk 3.000 (penerimaan 20 Okt) − keluar 0 = 3.000 ✓
-  //   B240310: awal 750 + adjust 50 + SBBK −500 + void +500 = 800 ✓
   {
     id: 3,
     obatId: 2,
@@ -62,7 +52,6 @@ export const mockBatchObat = [
     sumberAnggaran: "DAK Fisik",
     hargaSatuan: 500,
     status: "normal",
-    kategori: "Fast Moving",
   },
   {
     id: 4,
@@ -78,11 +67,7 @@ export const mockBatchObat = [
     sumberAnggaran: "DAK Fisik",
     hargaSatuan: 500,
     status: "normal",
-    kategori: "Fast Moving",
   },
-
-  // Oralit — Fast Moving
-  //   B240220: awal 220 + masuk 1.500 (penerimaan 18 Okt) − SBBK 200 − adj 20 = 1.500 ✓
   {
     id: 5,
     obatId: 3,
@@ -97,12 +82,7 @@ export const mockBatchObat = [
     sumberAnggaran: "APBD Provinsi",
     hargaSatuan: 800,
     status: "normal",
-    kategori: "Fast Moving",
   },
-
-  // Rifampisin — Slow Moving (Program TBC)
-  //   B240401: awal 0 + masuk 600 (penerimaan 20 Okt) = 600 ✓
-  //   B240102: awal 0 + masuk 200 (penerimaan parsial 15 Okt) = 200 ✓
   {
     id: 6,
     obatId: 4,
@@ -117,7 +97,6 @@ export const mockBatchObat = [
     sumberAnggaran: "APBN Kemenkes",
     hargaSatuan: 1200,
     status: "normal",
-    kategori: "Slow Moving",
   },
   {
     id: 7,
@@ -133,11 +112,7 @@ export const mockBatchObat = [
     sumberAnggaran: "APBN Kemenkes",
     hargaSatuan: 1200,
     status: "expired",
-    kategori: "Slow Moving",
   },
-
-  // Artemeter — Slow Moving (Program Malaria), sudah expired
-  //   B240305: tidak ada transaksi Okt (obat expired tidak didistribusikan)
   {
     id: 8,
     obatId: 5,
@@ -152,7 +127,6 @@ export const mockBatchObat = [
     sumberAnggaran: "APBN Kemenkes",
     hargaSatuan: 1500,
     status: "expired",
-    kategori: "Slow Moving",
   },
 ];
 
@@ -313,27 +287,6 @@ export const mockSBBK = [
         expiry: "2027-02-10",
         jumlah: 200,
         satuan: "Sachet",
-      },
-    ],
-  },
-  {
-    id: 2,
-    nomor: "SBBK-2026-0011",
-    tanggal: "2026-10-18",
-    ifk: "IFK Kab. Minahasa",
-    permintaanId: 2,
-    permintaanNomor: "PRM/MIN/2026/001",
-    status: "terbit",
-    cetakUlangKe: 1,
-    items: [
-      {
-        batchId: 4,
-        obatId: 2,
-        namaObat: "Amoksisilin 500mg",
-        noBatch: "B240310",
-        expiry: "2026-11-15",
-        jumlah: 500,
-        satuan: "Kapsul",
       },
     ],
   },
@@ -573,7 +526,6 @@ export const mockRiwayatTransaksi = [
     noBatch: "B240101",
     masuk: 0,
     keluar: 20,
-    saldo: 4980,
     petugas: "marsela",
     keterangan: "Rusak saat penyimpanan",
   },
@@ -586,7 +538,6 @@ export const mockRiwayatTransaksi = [
     noBatch: "B240220",
     masuk: 0,
     keluar: 20,
-    saldo: 1480,
     petugas: "marsela",
     keterangan: "Selisih hitung",
   },
@@ -599,7 +550,6 @@ export const mockRiwayatTransaksi = [
     noBatch: "B240205",
     masuk: 0,
     keluar: 500,
-    saldo: 2000,
     petugas: "marsela",
     keterangan: "Distribusi ke IFK Kota Manado",
   },
@@ -612,7 +562,6 @@ export const mockRiwayatTransaksi = [
     noBatch: "B240220",
     masuk: 0,
     keluar: 200,
-    saldo: 1500,
     petugas: "marsela",
     keterangan: "Distribusi ke IFK Kota Manado",
   },
@@ -625,7 +574,6 @@ export const mockRiwayatTransaksi = [
     noBatch: "B240101",
     masuk: 5000,
     keluar: 0,
-    saldo: 5000,
     petugas: "marsela",
     keterangan: "Dari Kemenkes RI",
   },
@@ -638,35 +586,8 @@ export const mockRiwayatTransaksi = [
     noBatch: "B240220",
     masuk: 1500,
     keluar: 0,
-    saldo: 1500,
     petugas: "marsela",
     keterangan: "Dari Kemenkes RI (discrepancy)",
-  },
-  {
-    id: 7,
-    tanggal: "2026-10-18 15:00:00",
-    jenis: "Void",
-    referensi: "SBBK-2026-0011",
-    namaObat: "Amoksisilin 500mg",
-    noBatch: "B240310",
-    masuk: 500,
-    keluar: 0,
-    saldo: 800,
-    petugas: "marsela",
-    keterangan: "Void: Salah input jumlah",
-  },
-  {
-    id: 8,
-    tanggal: "2026-10-18 14:50:00",
-    jenis: "SBBK",
-    referensi: "SBBK-2026-0011",
-    namaObat: "Amoksisilin 500mg",
-    noBatch: "B240310",
-    masuk: 0,
-    keluar: 500,
-    saldo: 300,
-    petugas: "marsela",
-    keterangan: "Distribusi ke IFK Kab. Minahasa",
   },
   {
     id: 9,
@@ -677,8 +598,7 @@ export const mockRiwayatTransaksi = [
     noBatch: "B240101",
     masuk: 0,
     keluar: 1000,
-    saldo: 4000,
-    petugas: "staf.buffer",
+    petugas: "marsela",
     keterangan: "Distribusi ke IFK Kota Bitung",
   },
   {
@@ -690,8 +610,7 @@ export const mockRiwayatTransaksi = [
     noBatch: "B240102",
     masuk: 200,
     keluar: 0,
-    saldo: 200,
-    petugas: "staf.program",
+    petugas: "marsela",
     keterangan: "Dari Kemenkes RI (parsial)",
   },
   {
@@ -703,64 +622,8 @@ export const mockRiwayatTransaksi = [
     noBatch: "B240310",
     masuk: 50,
     keluar: 0,
-    saldo: 0,
     petugas: "marsela",
     keterangan: "Koreksi salah input penerimaan",
-  },
-];
-
-export const mockRiwayatVoidAdjustment = [
-  {
-    id: 1,
-    tanggal: "2026-10-31 14:20:00",
-    jenis: "Adjustment",
-    referensi: "SO-Okt-2026",
-    namaObat: "Parasetamol 500mg",
-    noBatch: "B240101",
-    jumlah: 20,
-    arah: "kurang",
-    alasan: "Rusak saat penyimpanan",
-    petugas: "marsela",
-    statusPemulihan: "Stok berkurang 20",
-  },
-  {
-    id: 2,
-    tanggal: "2026-10-31 14:20:00",
-    jenis: "Adjustment",
-    referensi: "SO-Okt-2026",
-    namaObat: "Oralit 200ml",
-    noBatch: "B240220",
-    jumlah: 20,
-    arah: "kurang",
-    alasan: "Selisih hitung",
-    petugas: "marsela",
-    statusPemulihan: "Stok berkurang 20",
-  },
-  {
-    id: 3,
-    tanggal: "2026-10-15 10:00:00",
-    jenis: "Adjustment",
-    referensi: "ADJ-2026-003",
-    namaObat: "Amoksisilin 500mg",
-    noBatch: "B240310",
-    jumlah: 50,
-    arah: "tambah",
-    alasan: "Koreksi salah input penerimaan",
-    petugas: "marsela",
-    statusPemulihan: "Stok bertambah 50",
-  },
-  {
-    id: 4,
-    tanggal: "2026-10-18 15:00:00",
-    jenis: "Void",
-    referensi: "SBBK-2026-0011",
-    namaObat: "Amoksisilin 500mg",
-    noBatch: "B240310",
-    jumlah: 500,
-    arah: "kembali",
-    alasan: "Salah input jumlah (seharusnya 300 bukan 500)",
-    petugas: "marsela",
-    statusPemulihan: "Stok kembali 500",
   },
 ];
 
@@ -880,6 +743,38 @@ export const mockPermintaan = [
       },
     ],
   },
+  {
+    id: 4,
+    nomorSurat: "PRM/MND/2026/002",
+    tanggal: "2026-11-01",
+    kabKota: "IFK Kota Manado",
+    status: "pending",
+    catatan:
+      "Kebutuhan TW4 2026 — pasien TBC meningkat, permintaan melebihi stok tersedia",
+    items: [
+      {
+        obatId: 4,
+        kodeObat: "OBT-004",
+        namaObat: "Rifampisin 450mg",
+        satuan: "Tablet",
+        jumlahDiminta: 1000,
+      },
+      {
+        obatId: 3,
+        kodeObat: "OBT-003",
+        namaObat: "Oralit 200ml",
+        satuan: "Sachet",
+        jumlahDiminta: 2000,
+      },
+      {
+        obatId: 1,
+        kodeObat: "OBT-001",
+        namaObat: "Parasetamol 500mg",
+        satuan: "Tablet",
+        jumlahDiminta: 3000,
+      },
+    ],
+  },
 ];
 // ============================================================
 // Helper: hitung status & warna berdasarkan sisa hari
@@ -888,7 +783,6 @@ export const mockPermintaan = [
 // ============================================================
 export const getExpiryInfo = (batch) => {
   const d = Math.ceil((new Date(batch.expiry) - new Date()) / 86400000);
-
   if (d < 0) {
     return {
       status: "expired",
@@ -898,7 +792,7 @@ export const getExpiryInfo = (batch) => {
       badgeClass: "badge-danger",
     };
   }
-  if (d <= 30) {
+  if (d <= 180) {
     return {
       status: "normal",
       days: d,
@@ -907,23 +801,13 @@ export const getExpiryInfo = (batch) => {
       badgeClass: "badge-danger",
     };
   }
-  if (d <= 90) {
+  if (d <= 240) {
     return {
       status: "normal",
       days: d,
       label: `${d} hari lagi`,
       color: "warning",
       badgeClass: "badge-warning",
-    };
-  }
-  const ambang = batch.kategori === "Fast Moving" ? 210 : 90;
-  if (d <= ambang) {
-    return {
-      status: "normal",
-      days: d,
-      label: `${d} hari lagi`,
-      color: "caution",
-      badgeClass: "badge-caution",
     };
   }
   return {

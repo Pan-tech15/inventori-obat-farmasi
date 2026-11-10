@@ -39,8 +39,18 @@ export default function DetailPermintaanOperator() {
   const p = mockPermintaan.find((x) => x.id === Number(id));
 
   if (!p) return <div className="card">Permintaan tidak ditemukan.</div>;
-  // Cek apakah sudah ada SBBK (draft atau terbit) untuk permintaan ini
-  const existingSBBK = getAllSBBK().find((s) => s.permintaanId === p.id);
+  // Permintaan dianggap selesai jika status "selesai" ATAU sudah tercatat
+  // di localStorage setelah operator menerbitkan SBBK untuk permintaan ini.
+  const selesaiIds = JSON.parse(
+    localStorage.getItem("permintaanSelesai") || "[]",
+  );
+  const isSelesai = p.status === "selesai" || selesaiIds.includes(p.id);
+
+  // SBBK hanya dicek jika permintaan sudah selesai.
+  // Permintaan pending tidak mungkin punya SBBK — SBBK dibuat setelah review.
+  const existingSBBK = isSelesai
+    ? getAllSBBK().find((s) => s.permintaanId === p.id)
+    : null;
   const hasSBBK = Boolean(existingSBBK);
   // Cek semua item
   const itemChecks = p.items.map((it) => ({
@@ -184,7 +194,7 @@ export default function DetailPermintaanOperator() {
               ? "Lanjutkan SBBK Draft"
               : "Lihat SBBK"}
           </button>
-        ) : p.status === "pending" ? (
+        ) : !isSelesai ? (
           <button
             className="btn btn-primary"
             onClick={handleBuatSBBK}

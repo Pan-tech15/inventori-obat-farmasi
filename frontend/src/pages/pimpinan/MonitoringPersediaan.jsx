@@ -15,7 +15,6 @@ export default function MonitoringPersediaan() {
   const [search, setSearch] = useState("");
   const [filterJenis, setFilterJenis] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterKategori, setFilterKategori] = useState("");
 
   const rows = useMemo(
     () =>
@@ -38,8 +37,7 @@ export default function MonitoringPersediaan() {
       r.program.toLowerCase().includes(q); // Program bisa dicari juga
     const matchJenis = !filterJenis || r.jenis === filterJenis;
     const matchStatus = !filterStatus || r.status === filterStatus;
-    const matchKategori = !filterKategori || r.kategori === filterKategori;
-    return matchSearch && matchJenis && matchStatus && matchKategori;
+    return matchSearch && matchJenis && matchStatus;
   });
 
   const totalUnit = filtered.reduce((s, r) => s + r.stok, 0);
@@ -134,20 +132,11 @@ export default function MonitoringPersediaan() {
             <option>Buffer</option>
           </select>
           <select
-            value={filterKategori}
-            onChange={(e) => setFilterKategori(e.target.value)}
-          >
-            <option value="">Semua Kategori</option>
-            <option>Fast Moving</option>
-            <option>Slow Moving</option>
-          </select>
-          <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="">Semua Status</option>
             <option value="normal">Normal</option>
-            <option value="karantina">Karantina</option>
             <option value="expired">Expired</option>
           </select>
           <span className="spacer" />
@@ -168,7 +157,6 @@ export default function MonitoringPersediaan() {
                 <th>Satuan</th>
                 <th>Jenis</th>
                 <th>Program Spesifik</th>
-                <th>Kategori</th>
                 <th>Pabrik</th>
                 <th style={{ textAlign: "right" }}>Nilai</th>
                 <th>Status</th>
@@ -222,7 +210,6 @@ export default function MonitoringPersediaan() {
                         <span style={{ color: "var(--gray-400)" }}>-</span>
                       )}
                     </td>
-                    <td>{r.kategori}</td>
                     <td>{r.pabrik}</td>
                     <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                       Rp {fmt(r.stok * r.hargaSatuan)}

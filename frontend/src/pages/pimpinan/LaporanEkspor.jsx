@@ -6,7 +6,6 @@ import {
   mockSBBK,
   mockStockOpname,
   mockRiwayatTransaksi,
-  mockRiwayatVoidAdjustment,
 } from "../../data/mockOperator";
 import { exportCSV, exportPDFViaPrint } from "../../utils/export";
 

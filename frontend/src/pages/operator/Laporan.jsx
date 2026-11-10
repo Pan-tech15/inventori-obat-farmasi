@@ -3,19 +3,16 @@ import { mockObat } from "../../data/mockData";
 import {
   mockBatchObat,
   mockPenerimaan,
-  mockSBBK,
   mockStockOpname,
-  mockRiwayatVoidAdjustment,
   mockRiwayatTransaksi,
+  mockAdjustment,
+  getExpiryInfo,
+  getAllSBBK,
 } from "../../data/mockOperator";
 
 // ===== Helper =====
-const daysUntil = (s) => Math.ceil((new Date(s) - new Date()) / 86400000);
 const fmt = (n) => Number(n || 0).toLocaleString("id-ID");
 const rupiah = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
-
-// Join batch -> master obat untuk mendapatkan jenis (Program/Buffer).
-// Di backend nanti ini menjadi JOIN batch_obat -> obat.
 const jenisOf = (kodeObat) =>
   mockObat.find((o) => o.kode === kodeObat)?.jenis || "-";
 
@@ -26,10 +23,23 @@ const LAPORAN = [
     label: "Laporan Stok per Batch",
     dateField: null,
     useJenisFilter: true,
+    build: () =>
+      mockBatchObat.map((b) => ({
+        ...b,
+        jenis: jenisOf(b.kodeObat),
+        exp: getExpiryInfo(b),
+      })),
     columns: [
       { key: "namaObat", label: "Nama Obat" },
       { key: "noBatch", label: "No Batch" },
       { key: "expiry", label: "Expiry" },
+      {
+        key: "exp",
+        label: "Status Kedaluwarsa",
+        render: (r) => (
+          <span className={`badge ${r.exp.badgeClass}`}>{r.exp.label}</span>
+        ),
+      },
       {
         key: "stok",
         label: "Stok",
@@ -46,17 +56,6 @@ const LAPORAN = [
         align: "right",
         render: (r) => rupiah(r.stok * r.hargaSatuan),
       },
-      {
-        key: "status",
-        label: "Status",
-        render: (r) => (
-          <span
-            className={`badge ${r.status === "normal" ? "badge-success" : r.status === "karantina" ? "badge-warning" : "badge-danger"}`}
-          >
-            {r.status}
-          </span>
-        ),
-      },
     ],
     summary: (rows) => [
       { label: "Jumlah Batch", value: fmt(rows.length) },
@@ -69,8 +68,8 @@ const LAPORAN = [
         value: rupiah(rows.reduce((s, r) => s + r.stok * r.hargaSatuan, 0)),
       },
       {
-        label: "Batch Bermasalah",
-        value: fmt(rows.filter((r) => r.status !== "normal").length),
+        label: "Batch Kedaluwarsa",
+        value: fmt(rows.filter((r) => r.exp.status === "expired").length),
       },
     ],
   },
@@ -79,6 +78,7 @@ const LAPORAN = [
     label: "Kartu Stok (Mutasi)",
     dateField: "tanggal",
     useJenisFilter: false,
+    build: () => mockRiwayatTransaksi,
     columns: [
       { key: "tanggal", label: "Tanggal" },
       { key: "jenis", label: "Jenis Transaksi" },
@@ -97,13 +97,7 @@ const LAPORAN = [
         align: "right",
         render: (r) => (r.keluar > 0 ? `-${fmt(r.keluar)}` : "-"),
       },
-      {
-        key: "saldo",
-        label: "Saldo",
-        align: "right",
-        render: (r) => fmt(r.saldo),
-      },
-      { key: "petugas", label: "Petugas" },
+      { key: "keterangan", label: "Keterangan" },
     ],
     summary: (rows) => [
       { label: "Jumlah Mutasi", value: fmt(rows.length) },
@@ -122,6 +116,7 @@ const LAPORAN = [
     label: "Laporan Penerimaan",
     dateField: "tanggal",
     useJenisFilter: false,
+    build: () => mockPenerimaan,
     columns: [
       { key: "tanggal", label: "Tanggal" },
       { key: "noSPB", label: "No SPB" },
@@ -129,18 +124,7 @@ const LAPORAN = [
       { key: "asal", label: "Asal" },
       { key: "sumberAnggaran", label: "Sumber Anggaran" },
       { key: "totalItem", label: "Jumlah Item", align: "right" },
-      {
-        key: "status",
-        label: "Status",
-        render: (r) => (
-          <span
-            className={`badge ${r.status === "selesai" ? "badge-success" : r.status === "discrepancy" ? "badge-warning" : r.status === "parsial" ? "badge-info" : "badge-gray"}`}
-          >
-            {r.status}
-          </span>
-        ),
-      },
-      { key: "petugas", label: "Petugas" },
+      { key: "status", label: "Status" },
     ],
     summary: (rows) => [
       { label: "Jumlah Dokumen", value: fmt(rows.length) },
@@ -163,47 +147,34 @@ const LAPORAN = [
     label: "Laporan SBBK / Distribusi",
     dateField: "tanggal",
     useJenisFilter: false,
+    build: () => getAllSBBK().filter((s) => s.status === "terbit"),
     columns: [
       { key: "nomor", label: "Nomor SBBK" },
       { key: "tanggal", label: "Tanggal Terbit" },
       { key: "ifk", label: "IFK Tujuan" },
-      { key: "totalItem", label: "Jumlah Item", align: "right" },
+      {
+        key: "permintaanNomor",
+        label: "Untuk Permintaan",
+        render: (r) => r.permintaanNomor || "-",
+      },
+      {
+        key: "totalItem",
+        label: "Jumlah Item",
+        align: "right",
+        render: (r) => r.items.length,
+      },
       {
         key: "cetakUlangKe",
         label: "Cetak Ulang",
         align: "right",
-        render: (r) => `${r.cetakUlangKe}×`,
+        render: (r) => `${r.cetakUlangKe || 0}×`,
       },
-      {
-        key: "status",
-        label: "Status",
-        render: (r) => (
-          <span
-            className={`badge ${r.status === "terbit" ? "badge-success" : "badge-danger"}`}
-          >
-            {r.status}
-          </span>
-        ),
-      },
-      { key: "petugas", label: "Petugas" },
     ],
     summary: (rows) => [
       { label: "Jumlah SBBK", value: fmt(rows.length) },
       {
-        label: "Terbit",
-        value: fmt(rows.filter((r) => r.status === "terbit").length),
-      },
-      {
-        label: "Void",
-        value: fmt(rows.filter((r) => r.status === "void").length),
-      },
-      {
         label: "Total Item Didistribusikan",
-        value: fmt(
-          rows
-            .filter((r) => r.status === "terbit")
-            .reduce((s, r) => s + r.totalItem, 0),
-        ),
+        value: fmt(rows.reduce((s, r) => s + r.items.length, 0)),
       },
     ],
   },
@@ -212,15 +183,25 @@ const LAPORAN = [
     label: "Laporan Obat Mendekati Kedaluwarsa",
     dateField: null,
     useJenisFilter: true,
+    build: () =>
+      mockBatchObat
+        .map((b) => ({
+          ...b,
+          jenis: jenisOf(b.kodeObat),
+          exp: getExpiryInfo(b),
+        }))
+        .filter((b) => b.exp.color !== "safe")
+        .sort((a, b) => a.exp.days - b.exp.days),
     columns: [
-      { key: "namaObat", label: "Nama Obat" },
-      { key: "noBatch", label: "No Batch" },
+      { key: "namaObat", label: "Obat" },
+      { key: "noBatch", label: "Batch" },
       { key: "expiry", label: "Expiry" },
       {
-        key: "sisaHari",
-        label: "Sisa Hari",
-        align: "right",
-        render: (r) => (r.sisaHari < 0 ? "Expired" : `${r.sisaHari} hari`),
+        key: "exp",
+        label: "Sisa Waktu",
+        render: (r) => (
+          <span className={`badge ${r.exp.badgeClass}`}>{r.exp.label}</span>
+        ),
       },
       {
         key: "stok",
@@ -228,43 +209,17 @@ const LAPORAN = [
         align: "right",
         render: (r) => fmt(r.stok),
       },
-      { key: "kategori", label: "Kategori" },
-      { key: "status", label: "Status" },
     ],
     summary: (rows) => [
-      { label: "Jumlah Batch Berisiko", value: fmt(rows.length) },
+      { label: "Batch Berisiko", value: fmt(rows.length) },
       {
         label: "Total Stok Berisiko",
         value: fmt(rows.reduce((s, r) => s + r.stok, 0)),
       },
       {
-        label: "Sudah Expired",
-        value: fmt(rows.filter((r) => r.sisaHari < 0).length),
+        label: "Sudah Kedaluwarsa",
+        value: fmt(rows.filter((r) => r.exp.status === "expired").length),
       },
-    ],
-  },
-  {
-    id: "karantina",
-    label: "Laporan Obat Karantina",
-    dateField: null,
-    useJenisFilter: true,
-    columns: [
-      { key: "namaObat", label: "Nama Obat" },
-      { key: "noBatch", label: "No Batch" },
-      { key: "expiry", label: "Expiry" },
-      {
-        key: "stok",
-        label: "Stok",
-        align: "right",
-        render: (r) => fmt(r.stok),
-      },
-      { key: "satuan", label: "Satuan" },
-      { key: "pabrik", label: "Pabrik" },
-      { key: "status", label: "Status" },
-    ],
-    summary: (rows) => [
-      { label: "Jumlah Batch Karantina", value: fmt(rows.length) },
-      { label: "Total Unit", value: fmt(rows.reduce((s, r) => s + r.stok, 0)) },
     ],
   },
   {
@@ -272,11 +227,19 @@ const LAPORAN = [
     label: "Laporan Variance Stock Opname",
     dateField: "tanggal",
     useJenisFilter: false,
+    build: () =>
+      mockStockOpname.flatMap((so) =>
+        so.items.map((it) => ({
+          ...it,
+          periode: so.periode,
+          tanggal: so.tanggal,
+        })),
+      ),
     columns: [
       { key: "periode", label: "Periode" },
       { key: "tanggal", label: "Tanggal" },
-      { key: "namaObat", label: "Nama Obat" },
-      { key: "noBatch", label: "No Batch" },
+      { key: "namaObat", label: "Obat" },
+      { key: "noBatch", label: "Batch" },
       {
         key: "stokSistem",
         label: "Stok Sistem",
@@ -293,14 +256,9 @@ const LAPORAN = [
         key: "selisih",
         label: "Selisih",
         align: "right",
-        render: (r) => (
-          <span
-            className={`badge ${r.selisih === 0 ? "badge-success" : r.selisih > 0 ? "badge-info" : "badge-warning"}`}
-          >
-            {r.selisih > 0 ? `+${r.selisih}` : r.selisih}
-          </span>
-        ),
+        render: (r) => (r.selisih > 0 ? `+${r.selisih}` : r.selisih),
       },
+      { key: "kategoriAlasan", label: "Kategori" },
       { key: "alasan", label: "Alasan" },
     ],
     summary: (rows) => [
@@ -316,93 +274,49 @@ const LAPORAN = [
     ],
   },
   {
-    id: "void",
-    label: "Laporan Void & Adjustment",
+    id: "penyesuaian",
+    label: "Laporan Penyesuaian Stok",
     dateField: "tanggal",
     useJenisFilter: false,
+    build: () => mockAdjustment,
     columns: [
       { key: "tanggal", label: "Tanggal" },
+      { key: "referensi", label: "Referensi" },
+      { key: "namaObat", label: "Obat" },
+      { key: "noBatch", label: "Batch" },
       {
         key: "jenis",
         label: "Jenis",
         render: (r) => (
           <span
-            className={`badge ${r.jenis === "Void" ? "badge-danger" : "badge-warning"}`}
+            className={`badge ${r.jenis === "tambah" ? "badge-success" : "badge-warning"}`}
           >
-            {r.jenis}
+            {r.jenis === "tambah" ? "Tambah" : "Kurang"}
           </span>
         ),
       },
-      { key: "referensi", label: "Referensi" },
-      { key: "namaObat", label: "Nama Obat" },
-      { key: "noBatch", label: "No Batch" },
       {
         key: "jumlah",
         label: "Jumlah",
         align: "right",
         render: (r) => fmt(r.jumlah),
       },
+      { key: "kategoriAlasan", label: "Kategori" },
       { key: "alasan", label: "Alasan" },
-      { key: "petugas", label: "Petugas" },
     ],
     summary: (rows) => [
-      { label: "Jumlah Koreksi", value: fmt(rows.length) },
+      { label: "Jumlah Penyesuaian", value: fmt(rows.length) },
       {
-        label: "Void SBBK",
-        value: fmt(rows.filter((r) => r.jenis === "Void").length),
+        label: "Penambahan",
+        value: fmt(rows.filter((r) => r.jenis === "tambah").length),
       },
       {
-        label: "Adjustment",
-        value: fmt(rows.filter((r) => r.jenis === "Adjustment").length),
+        label: "Pengurangan",
+        value: fmt(rows.filter((r) => r.jenis === "kurang").length),
       },
     ],
   },
 ];
-
-// ===== Penyusun data per jenis laporan =====
-function buildRows(jenis) {
-  switch (jenis) {
-    case "stok":
-      return mockBatchObat.map((b) => ({ ...b, jenis: jenisOf(b.kodeObat) }));
-    case "kartu":
-      return mockRiwayatTransaksi;
-    case "penerimaan":
-      return mockPenerimaan;
-    case "sbbk":
-      return mockSBBK;
-    case "expiry":
-      return mockBatchObat
-        .map((b) => ({
-          ...b,
-          jenis: jenisOf(b.kodeObat),
-          sisaHari: daysUntil(b.expiry),
-        }))
-        .filter(
-          (b) =>
-            b.status !== "expired" &&
-            b.sisaHari <= (b.kategori === "Fast Moving" ? 210 : 90),
-        )
-        .sort((a, b) => a.sisaHari - b.sisaHari);
-    case "karantina":
-      return mockBatchObat
-        .filter((b) => b.status === "karantina")
-        .map((b) => ({ ...b, jenis: jenisOf(b.kodeObat) }));
-    case "variance":
-      return mockStockOpname.flatMap((so) =>
-        so.items.map((it) => ({
-          ...it,
-          periode: so.periode,
-          tanggal: so.tanggal,
-          namaObat: it.namaObat,
-          noBatch: it.noBatch,
-        })),
-      );
-    case "void":
-      return mockRiwayatVoidAdjustment;
-    default:
-      return [];
-  }
-}
 
 export default function Laporan() {
   const [jenis, setJenis] = useState("stok");
@@ -413,18 +327,16 @@ export default function Laporan() {
   const [preview, setPreview] = useState(false);
 
   const config = LAPORAN.find((l) => l.id === jenis);
-  const allRows = useMemo(() => buildRows(jenis), [jenis]);
+  const allRows = useMemo(() => config.build(), [config]);
 
   const rows = useMemo(() => {
     return allRows.filter((r) => {
-      // Filter jenis obat (hanya laporan yang mendukung)
       if (
         config.useJenisFilter &&
         filterJenisObat &&
         r.jenis !== filterJenisObat
       )
         return false;
-      // Filter periode (hanya laporan yang punya dateField)
       if (config.dateField && r[config.dateField]) {
         const tgl = String(r[config.dateField]).slice(0, 10);
         if (periodeAwal && tgl < periodeAwal) return false;
@@ -439,7 +351,6 @@ export default function Laporan() {
   const handlePreview = () => setPreview(true);
 
   const handleEkspor = () => {
-    // CSV asli dibuat di sisi klien — sah dilakukan sepenuhnya di frontend
     if (format === "excel") {
       const header = config.columns.map((c) => `"${c.label}"`).join(";");
       const body = rows
@@ -447,14 +358,13 @@ export default function Laporan() {
           config.columns
             .map((c) => {
               const raw = c.render ? c.render(r) : r[c.key];
-              // Ambil teks mentah, buang markup bila render mengembalikan elemen
               const text = typeof raw === "object" ? (r[c.key] ?? "") : raw;
               return `"${String(text).replace(/"/g, '""')}"`;
             })
             .join(";"),
         )
         .join("\n");
-      const csv = `\uFEFF${header}\n${body}`; // BOM agar Excel membaca UTF-8
+      const csv = `\uFEFF${header}\n${body}`;
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -569,7 +479,6 @@ export default function Laporan() {
           <div className="info-banner warning">
             <strong>PREVIEW — DATA SIMULASI.</strong> Angka pada tabel ini
             berasal dari data contoh (mock), bukan basis data produksi.
-            Diimplementasikan untuk memvalidasi struktur kolom dan filter.
           </div>
 
           <div className="stat-grid">

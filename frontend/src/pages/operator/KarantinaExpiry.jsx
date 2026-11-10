@@ -152,14 +152,13 @@ export default function KarantinaExpiry() {
                 <th>Sisa Hari</th>
                 <th style={{ textAlign: "right" }}>Stok</th>
                 <th style={{ textAlign: "right" }}>Nilai</th>
-                <th>Kategori</th>
                 <th style={{ textAlign: "center" }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={7}>
                     <div className="empty-state">
                       Tidak ada data pada kategori ini.
                     </div>
@@ -210,7 +209,6 @@ export default function KarantinaExpiry() {
                       <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                         {rupiah(b.stok * b.hargaSatuan)}
                       </td>
-                      <td>{b.kategori}</td>
                       <td style={{ textAlign: "center" }}>
                         <div
                           style={{

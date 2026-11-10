@@ -110,10 +110,9 @@ export default function StokBatch() {
           <span className="badge badge-danger">Merah</span> ≤ 30 hari atau
           kedaluwarsa · <span className="badge badge-warning">Oranye</span>{" "}
           31–90 hari · <span className="badge badge-caution">Kuning</span>{" "}
-          91–210 hari (Fast Moving) ·{" "}
-          <span className="badge badge-success">Hijau</span> masih jauh dari
-          expiry. Warna hanya panduan prioritas — semua batch normal tetap bisa
-          didistribusikan.
+          91–210 hari · <span className="badge badge-success">Hijau</span> masih
+          jauh dari expiry. Warna hanya panduan prioritas — semua batch normal
+          tetap bisa didistribusikan.
         </div>
 
         <div className="table-wrap">
@@ -134,7 +133,7 @@ export default function StokBatch() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={8}>
                     <div className="empty-state">
                       Tidak ada batch yang sesuai filter.
                     </div>
