@@ -16,6 +16,12 @@ import AuditTrail from "./pages/admin/AuditTrail";
 import BackupRestore from "./pages/admin/BackupRestore";
 import RiwayatLogin from "./pages/admin/RiwayatLogin";
 
+// Monitoring (eks Pimpinan, sekarang bagian Admin)
+import AdminMonitoringDashboard from "./pages/pimpinan/Dashboard";
+import AdminMonitoringPersediaan from "./pages/pimpinan/MonitoringPersediaan";
+import AdminMonitoringTransaksi from "./pages/pimpinan/MonitoringTransaksi";
+import AdminMonitoringLaporan from "./pages/pimpinan/LaporanEkspor";
+
 // ============================================================
 // OPERATOR
 // ============================================================
@@ -37,15 +43,6 @@ import OperatorDaftarPermintaan from "./pages/operator/DaftarPermintaan";
 import OperatorDetailPermintaan from "./pages/operator/DetailPermintaan";
 
 // ============================================================
-// PIMPINAN
-// ============================================================
-import PimpinanDashboard from "./pages/pimpinan/Dashboard";
-import MonitoringPersediaan from "./pages/pimpinan/MonitoringPersediaan";
-import MonitoringTransaksi from "./pages/pimpinan/MonitoringTransaksi";
-import LaporanEkspor from "./pages/pimpinan/LaporanEkspor";
-import AuditTrailPimpinan from "./pages/pimpinan/AuditTrail";
-
-// ============================================================
 // KAB/KOTA (Batch 2)
 // ============================================================
 import KabKotaDashboard from "./pages/kabkota/Dashboard";
@@ -59,7 +56,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
 
       {/* ==================================================== */}
-      {/* ADMIN                                                */}
+      {/* ADMIN (termasuk fungsi monitoring eks Pimpinan)      */}
       {/* ==================================================== */}
       <Route
         path="/admin"
@@ -71,6 +68,23 @@ export default function App() {
       >
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
+
+        {/* Monitoring (eks Pimpinan) */}
+        <Route
+          path="monitoring-dashboard"
+          element={<AdminMonitoringDashboard />}
+        />
+        <Route
+          path="monitoring-persediaan"
+          element={<AdminMonitoringPersediaan />}
+        />
+        <Route
+          path="monitoring-transaksi"
+          element={<AdminMonitoringTransaksi />}
+        />
+        <Route path="monitoring-laporan" element={<AdminMonitoringLaporan />} />
+
+        {/* Sistem */}
         <Route path="pengguna" element={<ManajemenPengguna />} />
         <Route path="master-obat" element={<MasterObat />} />
         <Route path="master-referensi" element={<MasterReferensi />} />
@@ -95,7 +109,7 @@ export default function App() {
         <Route index element={<Navigate to="/operator/dashboard" replace />} />
         <Route path="dashboard" element={<OpDashboard />} />
 
-        {/* Permintaan Kab/Kota (Batch 2) */}
+        {/* Permintaan Kab/Kota */}
         <Route path="permintaan" element={<OperatorDaftarPermintaan />} />
         <Route path="permintaan/:id" element={<OperatorDetailPermintaan />} />
 
@@ -115,9 +129,7 @@ export default function App() {
         <Route path="kartu-stok" element={<KartuStok />} />
         <Route path="karantina" element={<KarantinaExpiry />} />
 
-        {/* Stock Opname */}
-
-        {/* Penyesuaian Stok */}
+        {/* Stock Opname + Penyesuaian (gabungan) */}
         <Route path="penyesuaian" element={<PenyesuaianStok />} />
 
         {/* Riwayat */}
@@ -130,27 +142,7 @@ export default function App() {
       </Route>
 
       {/* ==================================================== */}
-      {/* PIMPINAN                                             */}
-      {/* ==================================================== */}
-      <Route
-        path="/pimpinan"
-        element={
-          <ProtectedRoute allowedRole="Pimpinan">
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="/pimpinan/dashboard" replace />} />
-        <Route path="dashboard" element={<PimpinanDashboard />} />
-        <Route path="persediaan" element={<MonitoringPersediaan />} />
-        <Route path="transaksi" element={<MonitoringTransaksi />} />
-        <Route path="laporan" element={<LaporanEkspor />} />
-        <Route path="audit-trail" element={<AuditTrailPimpinan />} />
-        <Route path="profile" element={<Profile />} />
-      </Route>
-
-      {/* ==================================================== */}
-      {/* KAB/KOTA (Batch 2)                                   */}
+      {/* KAB/KOTA                                             */}
       {/* ==================================================== */}
       <Route
         path="/kabkota"

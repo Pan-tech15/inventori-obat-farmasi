@@ -40,14 +40,13 @@ export default function Login() {
         role: user.role,
         scope: user.scope,
         kabKota: user.kabKota || null,
-      })
+      }),
     );
     recordLogin(username, "Berhasil", "-");
 
     // Redirect berdasarkan role
     if (user.role === "Admin") navigate("/admin/dashboard");
     else if (user.role === "Operator") navigate("/operator/dashboard");
-    else if (user.role === "Pimpinan") navigate("/pimpinan/dashboard");
     else if (user.role === "Kab/Kota") navigate("/kabkota/dashboard");
     else navigate("/login");
   };
@@ -110,9 +109,11 @@ export default function Login() {
         <div className="hint">
           <strong>Akun demo:</strong>
           <br />
-          Admin: <code>vanesh</code> · Operator: <code>marsela</code> · Pimpinan: <code>kasi.farmasi</code>
+          Admin: <code>vanesh</code> · Admin (eks Pimpinan):{" "}
+          <code>kasi.farmasi</code> · Operator: <code>marsela</code> · Kab/Kota:{" "}
+          <code>ifk.manado</code>
           <br />
-          Kab/Kota: <code>ifk.manado</code> · Password semua: <code>password123</code>
+          Password semua: <code>password123</code>
         </div>
       </div>
     </div>

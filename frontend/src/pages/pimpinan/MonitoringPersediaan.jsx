@@ -1,15 +1,15 @@
 import { useState, useMemo } from "react";
 import { mockObat } from "../../data/mockData";
-import { mockBatchObat } from "../../data/mockOperator";
+import {
+  mockBatchObat,
+  getExpiryInfo,
+  getObatInfo,
+  jenisProgramOptions,
+  matchesJenisValue,
+} from "../../data/mockOperator";
 import { exportCSV, exportPDFViaPrint } from "../../utils/export";
 
-const daysUntil = (s) => Math.ceil((new Date(s) - new Date()) / 86400000);
 const fmt = (n) => Number(n || 0).toLocaleString("id-ID");
-
-// 1. Tambahkan helper untuk mengambil jenis dan program spesifik
-const jenisOf = (kode) => mockObat.find((o) => o.kode === kode)?.jenis || "-";
-const programOf = (kode) =>
-  mockObat.find((o) => o.kode === kode)?.program || "-";
 
 export default function MonitoringPersediaan() {
   const [search, setSearch] = useState("");
@@ -18,12 +18,15 @@ export default function MonitoringPersediaan() {
 
   const rows = useMemo(
     () =>
-      mockBatchObat.map((b) => ({
-        ...b,
-        jenis: jenisOf(b.kodeObat),
-        program: programOf(b.kodeObat), // 2. Tarik data program ke dalam baris
-        sisaHari: daysUntil(b.expiry),
-      })),
+      mockBatchObat.map((b) => {
+        const info = getObatInfo(b.kodeObat);
+        return {
+          ...b,
+          jenis: info.jenis,
+          program: info.program,
+          exp: getExpiryInfo(b),
+        };
+      }),
     [],
   );
 
@@ -34,9 +37,11 @@ export default function MonitoringPersediaan() {
       r.namaObat.toLowerCase().includes(q) ||
       r.noBatch.toLowerCase().includes(q) ||
       r.pabrik.toLowerCase().includes(q) ||
-      r.program.toLowerCase().includes(q); // Program bisa dicari juga
-    const matchJenis = !filterJenis || r.jenis === filterJenis;
-    const matchStatus = !filterStatus || r.status === filterStatus;
+      r.program.toLowerCase().includes(q);
+    const matchJenis =
+      !filterJenis ||
+      matchesJenisValue({ jenis: r.jenis, program: r.program }, filterJenis);
+    const matchStatus = !filterStatus || r.exp.status === filterStatus;
     return matchSearch && matchJenis && matchStatus;
   });
 
@@ -51,30 +56,32 @@ export default function MonitoringPersediaan() {
         "Batch",
         "Expiry",
         "Sisa Hari",
+        "Status Kedaluwarsa",
         "Stok",
         "Satuan",
         "Jenis",
-        "Program Spesifik", // 3. Tambah di header CSV
-        "Kategori",
+        "Program Spesifik",
         "Pabrik",
         "Sumber Anggaran",
+        "Harga Satuan",
         "Nilai Stok",
-        "Status",
+        "Status Batch",
       ],
       filtered.map((r) => [
         r.namaObat,
         r.noBatch,
         r.expiry,
-        r.sisaHari,
+        r.exp.days,
+        r.exp.label,
         r.stok,
         r.satuan,
         r.jenis,
-        r.program, // 4. Tambah di data CSV
-        r.kategori,
+        r.program,
         r.pabrik,
         r.sumberAnggaran,
+        r.hargaSatuan,
         r.stok * r.hargaSatuan,
-        r.status,
+        r.exp.status === "normal" ? "Normal" : "Kedaluwarsa",
       ]),
     );
   };
@@ -128,8 +135,11 @@ export default function MonitoringPersediaan() {
             onChange={(e) => setFilterJenis(e.target.value)}
           >
             <option value="">Semua Jenis</option>
-            <option>Program</option>
-            <option>Buffer</option>
+            {jenisProgramOptions.map((j) => (
+              <option key={j.value} value={j.value}>
+                {j.label}
+              </option>
+            ))}
           </select>
           <select
             value={filterStatus}
@@ -137,7 +147,7 @@ export default function MonitoringPersediaan() {
           >
             <option value="">Semua Status</option>
             <option value="normal">Normal</option>
-            <option value="expired">Expired</option>
+            <option value="expired">Kedaluwarsa</option>
           </select>
           <span className="spacer" />
           <span style={{ fontSize: 12, color: "var(--gray-600)" }}>
@@ -152,21 +162,20 @@ export default function MonitoringPersediaan() {
                 <th>Obat</th>
                 <th>Batch</th>
                 <th>Expiry</th>
-                <th>Sisa</th>
+                <th>Sisa Waktu</th>
                 <th style={{ textAlign: "right" }}>Stok</th>
                 <th>Satuan</th>
                 <th>Jenis</th>
                 <th>Program Spesifik</th>
                 <th>Pabrik</th>
-                <th style={{ textAlign: "right" }}>Nilai</th>
+                <th style={{ textAlign: "right" }}>Nilai Stok</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  {/* 5. Perbaiki colSpan dari 11 menjadi 12 karena kolom bertambah */}
-                  <td colSpan={12}>
+                  <td colSpan={11}>
                     <div className="empty-state">Tidak ada data.</div>
                   </td>
                 </tr>
@@ -179,10 +188,8 @@ export default function MonitoringPersediaan() {
                     </td>
                     <td>{r.expiry}</td>
                     <td>
-                      <span
-                        className={`badge ${r.sisaHari < 0 ? "badge-danger" : r.sisaHari <= 90 ? "badge-danger" : r.sisaHari <= 210 ? "badge-warning" : "badge-success"}`}
-                      >
-                        {r.sisaHari < 0 ? "expired" : `${r.sisaHari}h`}
+                      <span className={`badge ${r.exp.badgeClass}`}>
+                        {r.exp.label}
                       </span>
                     </td>
                     <td style={{ textAlign: "right" }}>{fmt(r.stok)}</td>
@@ -194,11 +201,10 @@ export default function MonitoringPersediaan() {
                         {r.jenis}
                       </span>
                     </td>
-                    {/* 6. Tampilkan program spesifiknya di sini */}
                     <td>
                       {r.jenis === "Program" ? (
                         <span
-                          className="badge badge-gray"
+                          className="badge"
                           style={{
                             background: "var(--primary-light)",
                             color: "var(--primary-dark)",
@@ -216,9 +222,9 @@ export default function MonitoringPersediaan() {
                     </td>
                     <td>
                       <span
-                        className={`badge ${r.status === "normal" ? "badge-success" : r.status === "karantina" ? "badge-warning" : "badge-danger"}`}
+                        className={`badge ${r.exp.status === "normal" ? "badge-success" : "badge-danger"}`}
                       >
-                        {r.status}
+                        {r.exp.status === "normal" ? "Normal" : "Kedaluwarsa"}
                       </span>
                     </td>
                   </tr>

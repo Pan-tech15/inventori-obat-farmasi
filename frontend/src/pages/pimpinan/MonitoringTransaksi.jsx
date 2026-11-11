@@ -1,14 +1,21 @@
 import { useState } from "react";
 import {
   mockPenerimaan,
-  mockSBBK,
-  mockStockOpname,
-  mockAdjustment,
+  getAllSBBK,
+  getAllOpnames,
+  getAllAdjustments,
 } from "../../data/mockOperator";
 import { exportCSV, exportPDFViaPrint } from "../../utils/export";
 import LegendaTabel from "../../components/LegendaTabel";
 
 const fmt = (n) => Number(n || 0).toLocaleString("id-ID");
+
+const STATUS_PENERIMAAN = {
+  selesai: { label: "Selesai", cls: "badge-success" },
+  discrepancy: { label: "Ada Ketidaksesuaian", cls: "badge-warning" },
+  parsial: { label: "Diterima Sebagian", cls: "badge-info" },
+  pending: { label: "Menunggu Verifikasi", cls: "badge-gray" },
+};
 
 const TABS = [
   { key: "penerimaan", label: "Penerimaan" },
@@ -21,24 +28,29 @@ export default function MonitoringTransaksi() {
   const [tab, setTab] = useState("penerimaan");
   const [search, setSearch] = useState("");
 
-  const filterBySearch = (rows, keys) => {
-    if (!search) return rows;
-    const q = search.toLowerCase();
-    return rows.filter((r) =>
-      keys.some((k) =>
-        String(r[k] || "")
-          .toLowerCase()
-          .includes(q)
-      )
-    );
-  };
-
   const handleExportCSV = () => {
     if (tab === "penerimaan") {
-      const rows = filterBySearch(mockPenerimaan, ["noSPB", "noSBBK", "asal"]);
+      const rows = mockPenerimaan.filter((r) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+          r.noSPB.toLowerCase().includes(q) ||
+          r.noSBBK.toLowerCase().includes(q) ||
+          r.asal.toLowerCase().includes(q)
+        );
+      });
       exportCSV(
         `Monitoring_Penerimaan_${new Date().toISOString().slice(0, 10)}.csv`,
-        ["Tanggal", "No SPB", "No SBBK", "Asal", "Sumber Anggaran", "Item", "Status", "Catatan"],
+        [
+          "Tanggal",
+          "No SPB",
+          "No SBBK",
+          "Asal",
+          "Sumber Anggaran",
+          "Item",
+          "Status",
+          "Catatan",
+        ],
         rows.map((r) => [
           r.tanggal,
           r.noSPB,
@@ -48,10 +60,17 @@ export default function MonitoringTransaksi() {
           r.totalItem,
           r.status,
           r.catatan || "-",
-        ])
+        ]),
       );
     } else if (tab === "sbbk") {
-      const rows = filterBySearch(mockSBBK, ["nomor", "ifk"]);
+      const all = getAllSBBK();
+      const rows = all.filter((r) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+          r.nomor.toLowerCase().includes(q) || r.ifk.toLowerCase().includes(q)
+        );
+      });
       exportCSV(
         `Monitoring_SBBK_${new Date().toISOString().slice(0, 10)}.csv`,
         ["Nomor", "Tanggal", "IFK", "Item", "Status", "Cetak Ulang"],
@@ -59,24 +78,47 @@ export default function MonitoringTransaksi() {
           r.nomor,
           r.tanggal,
           r.ifk,
-          r.totalItem,
+          r.items?.length || r.totalItem || 0,
           r.status,
-          r.cetakUlangKe,
-        ])
+          r.cetakUlangKe || 0,
+        ]),
       );
     } else if (tab === "opname") {
-      const rows = mockStockOpname.flatMap((so) =>
-        so.items.map((it) => ({
+      const all = getAllOpnames().flatMap((so) =>
+        (so.items || []).map((it) => ({
           ...it,
           periode: so.periode,
-          tanggal: so.tanggal,
-        }))
+          tanggal: so.tanggal || "-",
+        })),
       );
-      const filtered = filterBySearch(rows, ["periode", "namaObat", "noBatch"]);
+      const rows = all.filter((r) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+          String(r.periode || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(r.namaObat || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(r.noBatch || "")
+            .toLowerCase()
+            .includes(q)
+        );
+      });
       exportCSV(
         `Monitoring_Variance_${new Date().toISOString().slice(0, 10)}.csv`,
-        ["Periode", "Tanggal", "Obat", "Batch", "Stok Sistem", "Stok Fisik", "Selisih", "Alasan"],
-        filtered.map((r) => [
+        [
+          "Periode",
+          "Tanggal",
+          "Obat",
+          "Batch",
+          "Stok Sistem",
+          "Stok Fisik",
+          "Selisih",
+          "Alasan",
+        ],
+        rows.map((r) => [
           r.periode,
           r.tanggal,
           r.namaObat,
@@ -85,10 +127,25 @@ export default function MonitoringTransaksi() {
           r.stokFisik,
           r.selisih,
           r.alasan,
-        ])
+        ]),
       );
     } else {
-      const rows = filterBySearch(mockAdjustment, ["namaObat", "noBatch", "alasan"]);
+      const all = getAllAdjustments();
+      const rows = all.filter((r) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+          String(r.namaObat || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(r.noBatch || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(r.alasan || "")
+            .toLowerCase()
+            .includes(q)
+        );
+      });
       exportCSV(
         `Monitoring_Adjustment_${new Date().toISOString().slice(0, 10)}.csv`,
         ["Tanggal", "Obat", "Batch", "Jenis", "Jumlah", "Alasan", "Referensi"],
@@ -100,7 +157,7 @@ export default function MonitoringTransaksi() {
           r.jumlah,
           r.alasan,
           r.referensi,
-        ])
+        ]),
       );
     }
   };
@@ -112,7 +169,7 @@ export default function MonitoringTransaksi() {
           <h2>Monitoring Transaksi</h2>
           <p>
             Pantau penerimaan, SBBK, stock opname, dan penyesuaian stok.
-            Read-only, termasuk untuk Pimpinan.
+            Read-only — data hanya untuk dipantau, tidak dapat diubah.
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }} className="no-print">
@@ -166,7 +223,7 @@ function TabPenerimaan({ search }) {
       !q ||
       r.noSPB.toLowerCase().includes(q) ||
       r.noSBBK.toLowerCase().includes(q) ||
-      r.asal.toLowerCase().includes(q)
+      r.asal.toLowerCase().includes(q),
   );
 
   return (
@@ -192,30 +249,32 @@ function TabPenerimaan({ search }) {
               </td>
             </tr>
           ) : (
-            rows.map((r) => (
-              <tr key={r.id}>
-                <td style={{ whiteSpace: "nowrap" }}>{r.tanggal}</td>
-                <td>
-                  <code>{r.noSPB}</code>
-                </td>
-                <td>
-                  <code>{r.noSBBK}</code>
-                </td>
-                <td>{r.asal}</td>
-                <td>{r.sumberAnggaran}</td>
-                <td style={{ textAlign: "right" }}>{r.totalItem}</td>
-                <td>
-                  <span
-                    className={`badge ${r.status === "selesai" ? "badge-success" : r.status === "discrepancy" ? "badge-warning" : r.status === "parsial" ? "badge-info" : "badge-gray"}`}
-                  >
-                    {r.status}
-                  </span>
-                </td>
-                <td style={{ fontSize: 12, color: "var(--gray-600)" }}>
-                  {r.catatan || "-"}
-                </td>
-              </tr>
-            ))
+            rows.map((r) => {
+              const st = STATUS_PENERIMAAN[r.status] || {
+                label: r.status,
+                cls: "badge-gray",
+              };
+              return (
+                <tr key={r.id}>
+                  <td style={{ whiteSpace: "nowrap" }}>{r.tanggal}</td>
+                  <td>
+                    <code>{r.noSPB}</code>
+                  </td>
+                  <td>
+                    <code>{r.noSBBK}</code>
+                  </td>
+                  <td>{r.asal}</td>
+                  <td>{r.sumberAnggaran}</td>
+                  <td style={{ textAlign: "right" }}>{r.totalItem}</td>
+                  <td>
+                    <span className={`badge ${st.cls}`}>{st.label}</span>
+                  </td>
+                  <td style={{ fontSize: 12, color: "var(--gray-600)" }}>
+                    {r.catatan || "-"}
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>
@@ -224,12 +283,13 @@ function TabPenerimaan({ search }) {
 }
 
 function TabSBBK({ search }) {
+  const all = getAllSBBK();
   const q = search.toLowerCase();
-  const rows = mockSBBK.filter(
+  const rows = all.filter(
     (r) =>
       !q ||
       r.nomor.toLowerCase().includes(q) ||
-      r.ifk.toLowerCase().includes(q)
+      r.ifk.toLowerCase().includes(q),
   );
 
   return (
@@ -253,24 +313,28 @@ function TabSBBK({ search }) {
               </td>
             </tr>
           ) : (
-            rows.map((r) => (
-              <tr key={r.id}>
-                <td>
-                  <code>{r.nomor}</code>
-                </td>
-                <td style={{ whiteSpace: "nowrap" }}>{r.tanggal}</td>
-                <td>{r.ifk}</td>
-                <td style={{ textAlign: "right" }}>{r.totalItem}</td>
-                <td>
-                  <span
-                    className={`badge ${r.status === "terbit" ? "badge-success" : "badge-warning"}`}
-                  >
-                    {r.status === "terbit" ? "Terbit" : "Draft"}
-                  </span>
-                </td>
-                <td style={{ textAlign: "right" }}>{r.cetakUlangKe}×</td>
-              </tr>
-            ))
+            rows.map((r) => {
+              const itemCount = r.items?.length || r.totalItem || 0;
+              const isDraft = r.status === "draft";
+              return (
+                <tr key={r.id} style={isDraft ? { background: "#fffaeb" } : {}}>
+                  <td>
+                    <code>{r.nomor}</code>
+                  </td>
+                  <td style={{ whiteSpace: "nowrap" }}>{r.tanggal}</td>
+                  <td>{r.ifk}</td>
+                  <td style={{ textAlign: "right" }}>{itemCount}</td>
+                  <td>
+                    <span
+                      className={`badge ${isDraft ? "badge-warning" : "badge-success"}`}
+                    >
+                      {isDraft ? "Draft" : "Terbit"}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "right" }}>{r.cetakUlangKe || 0}×</td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>
@@ -279,20 +343,26 @@ function TabSBBK({ search }) {
 }
 
 function TabOpname({ search }) {
-  const q = search.toLowerCase();
-  const allItems = mockStockOpname.flatMap((so) =>
-    so.items.map((it) => ({
+  const all = getAllOpnames().flatMap((so) =>
+    (so.items || []).map((it) => ({
       ...it,
       periode: so.periode,
-      tanggal: so.tanggal,
-    }))
+      tanggal: so.tanggal || "-",
+    })),
   );
-  const rows = allItems.filter(
+  const q = search.toLowerCase();
+  const rows = all.filter(
     (r) =>
       !q ||
-      r.periode.toLowerCase().includes(q) ||
-      r.namaObat.toLowerCase().includes(q) ||
-      r.noBatch.toLowerCase().includes(q)
+      String(r.periode || "")
+        .toLowerCase()
+        .includes(q) ||
+      String(r.namaObat || "")
+        .toLowerCase()
+        .includes(q) ||
+      String(r.noBatch || "")
+        .toLowerCase()
+        .includes(q),
   );
 
   const totalVariance = rows.reduce((s, r) => s + r.selisih, 0);
@@ -339,13 +409,14 @@ function TabOpname({ search }) {
               <th style={{ textAlign: "right" }}>Stok Sistem</th>
               <th style={{ textAlign: "right" }}>Stok Fisik</th>
               <th style={{ textAlign: "right" }}>Selisih</th>
+              <th>Kategori Alasan</th>
               <th>Alasan</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   <div className="empty-state">Tidak ada variance.</div>
                 </td>
               </tr>
@@ -367,6 +438,7 @@ function TabOpname({ search }) {
                       {r.selisih > 0 ? `+${r.selisih}` : r.selisih}
                     </span>
                   </td>
+                  <td style={{ fontSize: 12 }}>{r.kategoriAlasan || "-"}</td>
                   <td style={{ fontSize: 12 }}>{r.alasan}</td>
                 </tr>
               ))
@@ -374,19 +446,39 @@ function TabOpname({ search }) {
           </tbody>
         </table>
       </div>
-      <LegendaTabel />
+      <LegendaTabel
+        items={[
+          {
+            symbol: "+",
+            color: "plus",
+            label: "stok fisik lebih dari sistem (surplus)",
+          },
+          {
+            symbol: "−",
+            color: "minus",
+            label: "stok fisik kurang dari sistem (defisit)",
+          },
+        ]}
+      />
     </>
   );
 }
 
 function TabAdjustment({ search }) {
+  const all = getAllAdjustments();
   const q = search.toLowerCase();
-  const rows = mockAdjustment.filter(
+  const rows = all.filter(
     (r) =>
       !q ||
-      r.namaObat.toLowerCase().includes(q) ||
-      r.noBatch.toLowerCase().includes(q) ||
-      r.alasan.toLowerCase().includes(q)
+      String(r.namaObat || "")
+        .toLowerCase()
+        .includes(q) ||
+      String(r.noBatch || "")
+        .toLowerCase()
+        .includes(q) ||
+      String(r.alasan || "")
+        .toLowerCase()
+        .includes(q),
   );
 
   return (
@@ -399,6 +491,7 @@ function TabAdjustment({ search }) {
             <th>Batch</th>
             <th>Jenis</th>
             <th style={{ textAlign: "right" }}>Jumlah</th>
+            <th>Kategori</th>
             <th>Alasan</th>
             <th>Referensi</th>
           </tr>
@@ -406,7 +499,7 @@ function TabAdjustment({ search }) {
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={7}>
+              <td colSpan={8}>
                 <div className="empty-state">Tidak ada penyesuaian stok.</div>
               </td>
             </tr>
@@ -426,6 +519,7 @@ function TabAdjustment({ search }) {
                   </span>
                 </td>
                 <td style={{ textAlign: "right" }}>{fmt(r.jumlah)}</td>
+                <td style={{ fontSize: 12 }}>{r.kategoriAlasan || "-"}</td>
                 <td style={{ fontSize: 12 }}>{r.alasan}</td>
                 <td>
                   <code>{r.referensi}</code>
@@ -435,7 +529,6 @@ function TabAdjustment({ search }) {
           )}
         </tbody>
       </table>
-      <LegendaTabel />
     </div>
   );
 }

@@ -3,11 +3,11 @@ import { mockObat } from "../../data/mockData";
 import {
   mockBatchObat,
   mockPenerimaan,
-  mockStockOpname,
   mockRiwayatTransaksi,
-  mockAdjustment,
   getExpiryInfo,
   getAllSBBK,
+  getAllOpnames,
+  getAllAdjustments,
 } from "../../data/mockOperator";
 import { exportCSV, exportPDFViaPrint } from "../../utils/export";
 
@@ -15,6 +15,18 @@ const fmt = (n) => Number(n || 0).toLocaleString("id-ID");
 const rupiah = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
 const jenisOf = (kodeObat) =>
   mockObat.find((o) => o.kode === kodeObat)?.jenis || "-";
+
+// Ekstrak nilai teks dari render JSX untuk keperluan ekspor CSV
+const cellToText = (r, col) => {
+  if (col.csvValue) return col.csvValue(r);
+  if (col.render) {
+    // Coba ambil nilai dari field umum kalau render mengembalikan JSX
+    if (col.key === "exp" && r.exp) return r.exp.label;
+    if (col.key === "totalItem" && r.items) return r.items.length;
+    return r[col.key] ?? "";
+  }
+  return r[col.key] ?? "";
+};
 
 const LAPORAN = [
   {
@@ -38,12 +50,14 @@ const LAPORAN = [
         render: (r) => (
           <span className={`badge ${r.exp.badgeClass}`}>{r.exp.label}</span>
         ),
+        csvValue: (r) => r.exp.label,
       },
       {
         key: "stok",
         label: "Stok",
         align: "right",
         render: (r) => fmt(r.stok),
+        csvValue: (r) => r.stok,
       },
       { key: "satuan", label: "Satuan" },
       { key: "jenis", label: "Jenis" },
@@ -52,9 +66,32 @@ const LAPORAN = [
         label: "Harga Satuan",
         align: "right",
         render: (r) => rupiah(r.hargaSatuan),
+        csvValue: (r) => r.hargaSatuan,
+      },
+      {
+        key: "nilai",
+        label: "Nilai Stok",
+        align: "right",
+        render: (r) => rupiah(r.stok * r.hargaSatuan),
+        csvValue: (r) => r.stok * r.hargaSatuan,
       },
       { key: "pabrik", label: "Pabrik" },
       { key: "sumberAnggaran", label: "Sumber Anggaran" },
+    ],
+    summary: (rows) => [
+      { label: "Jumlah Batch", value: fmt(rows.length) },
+      {
+        label: "Total Unit Stok",
+        value: fmt(rows.reduce((s, r) => s + r.stok, 0)),
+      },
+      {
+        label: "Total Nilai Stok",
+        value: rupiah(rows.reduce((s, r) => s + r.stok * r.hargaSatuan, 0)),
+      },
+      {
+        label: "Batch Kedaluwarsa",
+        value: fmt(rows.filter((r) => r.exp.status === "expired").length),
+      },
     ],
   },
   {
@@ -74,14 +111,27 @@ const LAPORAN = [
         label: "Masuk",
         align: "right",
         render: (r) => (r.masuk > 0 ? `+${fmt(r.masuk)}` : "-"),
+        csvValue: (r) => r.masuk,
       },
       {
         key: "keluar",
         label: "Keluar",
         align: "right",
         render: (r) => (r.keluar > 0 ? `-${fmt(r.keluar)}` : "-"),
+        csvValue: (r) => r.keluar,
       },
       { key: "keterangan", label: "Keterangan" },
+    ],
+    summary: (rows) => [
+      { label: "Jumlah Mutasi", value: fmt(rows.length) },
+      {
+        label: "Total Masuk",
+        value: fmt(rows.reduce((s, r) => s + r.masuk, 0)),
+      },
+      {
+        label: "Total Keluar",
+        value: fmt(rows.reduce((s, r) => s + r.keluar, 0)),
+      },
     ],
   },
   {
@@ -98,6 +148,21 @@ const LAPORAN = [
       { key: "sumberAnggaran", label: "Sumber Anggaran" },
       { key: "totalItem", label: "Item", align: "right" },
       { key: "status", label: "Status" },
+    ],
+    summary: (rows) => [
+      { label: "Jumlah Dokumen", value: fmt(rows.length) },
+      {
+        label: "Total Item",
+        value: fmt(rows.reduce((s, r) => s + r.totalItem, 0)),
+      },
+      {
+        label: "Discrepancy / Parsial",
+        value: fmt(
+          rows.filter(
+            (r) => r.status === "discrepancy" || r.status === "parsial",
+          ).length,
+        ),
+      },
     ],
   },
   {
@@ -119,13 +184,22 @@ const LAPORAN = [
         key: "totalItem",
         label: "Item",
         align: "right",
-        render: (r) => r.items.length,
+        render: (r) => r.items?.length || 0,
+        csvValue: (r) => r.items?.length || 0,
       },
       {
         key: "cetakUlangKe",
         label: "Cetak Ulang",
         align: "right",
         render: (r) => `${r.cetakUlangKe || 0}×`,
+        csvValue: (r) => r.cetakUlangKe || 0,
+      },
+    ],
+    summary: (rows) => [
+      { label: "Jumlah SBBK", value: fmt(rows.length) },
+      {
+        label: "Total Item Didistribusikan",
+        value: fmt(rows.reduce((s, r) => s + (r.items?.length || 0), 0)),
       },
     ],
   },
@@ -153,12 +227,25 @@ const LAPORAN = [
         render: (r) => (
           <span className={`badge ${r.exp.badgeClass}`}>{r.exp.label}</span>
         ),
+        csvValue: (r) => r.exp.label,
       },
       {
         key: "stok",
         label: "Stok",
         align: "right",
         render: (r) => fmt(r.stok),
+        csvValue: (r) => r.stok,
+      },
+    ],
+    summary: (rows) => [
+      { label: "Batch Berisiko", value: fmt(rows.length) },
+      {
+        label: "Total Stok Berisiko",
+        value: fmt(rows.reduce((s, r) => s + r.stok, 0)),
+      },
+      {
+        label: "Sudah Kedaluwarsa",
+        value: fmt(rows.filter((r) => r.exp.status === "expired").length),
       },
     ],
   },
@@ -168,11 +255,11 @@ const LAPORAN = [
     dateField: "tanggal",
     useJenisFilter: false,
     build: () =>
-      mockStockOpname.flatMap((so) =>
-        so.items.map((it) => ({
+      getAllOpnames().flatMap((so) =>
+        (so.items || []).map((it) => ({
           ...it,
           periode: so.periode,
-          tanggal: so.tanggal,
+          tanggal: so.tanggal || "-",
         })),
       ),
     columns: [
@@ -185,21 +272,35 @@ const LAPORAN = [
         label: "Sistem",
         align: "right",
         render: (r) => fmt(r.stokSistem),
+        csvValue: (r) => r.stokSistem,
       },
       {
         key: "stokFisik",
         label: "Fisik",
         align: "right",
         render: (r) => fmt(r.stokFisik),
+        csvValue: (r) => r.stokFisik,
       },
       {
         key: "selisih",
         label: "Selisih",
         align: "right",
         render: (r) => (r.selisih > 0 ? `+${r.selisih}` : r.selisih),
+        csvValue: (r) => r.selisih,
       },
       { key: "kategoriAlasan", label: "Kategori" },
       { key: "alasan", label: "Alasan" },
+    ],
+    summary: (rows) => [
+      { label: "Item Diperiksa", value: fmt(rows.length) },
+      {
+        label: "Item Berselisih",
+        value: fmt(rows.filter((r) => r.selisih !== 0).length),
+      },
+      {
+        label: "Total Variance",
+        value: fmt(rows.reduce((s, r) => s + r.selisih, 0)),
+      },
     ],
   },
   {
@@ -207,21 +308,38 @@ const LAPORAN = [
     label: "Laporan Penyesuaian Stok",
     dateField: "tanggal",
     useJenisFilter: false,
-    build: () => mockAdjustment,
+    build: () => getAllAdjustments(),
     columns: [
       { key: "tanggal", label: "Tanggal" },
       { key: "referensi", label: "Referensi" },
       { key: "namaObat", label: "Obat" },
       { key: "noBatch", label: "Batch" },
-      { key: "jenis", label: "Jenis" },
+      {
+        key: "jenis",
+        label: "Jenis",
+        render: (r) => (r.jenis === "tambah" ? "Tambah" : "Kurang"),
+        csvValue: (r) => (r.jenis === "tambah" ? "Tambah" : "Kurang"),
+      },
       {
         key: "jumlah",
         label: "Jumlah",
         align: "right",
         render: (r) => fmt(r.jumlah),
+        csvValue: (r) => r.jumlah,
       },
       { key: "kategoriAlasan", label: "Kategori" },
       { key: "alasan", label: "Alasan" },
+    ],
+    summary: (rows) => [
+      { label: "Jumlah Penyesuaian", value: fmt(rows.length) },
+      {
+        label: "Penambahan",
+        value: fmt(rows.filter((r) => r.jenis === "tambah").length),
+      },
+      {
+        label: "Pengurangan",
+        value: fmt(rows.filter((r) => r.jenis === "kurang").length),
+      },
     ],
   },
 ];
@@ -255,14 +373,11 @@ export default function LaporanEkspor() {
     [allRows, config, filterJenisObat, periodeAwal, periodeAkhir],
   );
 
+  const summary = config.summary(rows);
+
   const handleExportCSV = () => {
     const headers = config.columns.map((c) => c.label);
-    const data = rows.map((r) =>
-      config.columns.map((c) => {
-        const raw = c.render ? c.render(r) : r[c.key];
-        return typeof raw === "object" ? (r[c.key] ?? "") : raw;
-      }),
-    );
+    const data = rows.map((r) => config.columns.map((c) => cellToText(r, c)));
     exportCSV(
       `${config.id}_${periodeAwal}_sd_${periodeAkhir}.csv`,
       headers,
@@ -274,9 +389,9 @@ export default function LaporanEkspor() {
     <>
       <div className="page-header">
         <div>
-          <h2>Laporan & Ekspor</h2>
+          <h2>Laporan &amp; Ekspor</h2>
           <p>
-            Semua laporan tersedia untuk Pimpinan. Ekspor ke CSV atau cetak PDF.
+            Semua laporan tersedia untuk Admin. Ekspor ke CSV atau cetak PDF.
           </p>
         </div>
       </div>
@@ -371,6 +486,17 @@ export default function LaporanEkspor() {
           <div className="info-banner warning no-print">
             <strong>PREVIEW — DATA SIMULASI.</strong> Angka dari data contoh,
             bukan basis data produksi.
+          </div>
+
+          <div className="stat-grid">
+            {summary.map((s, i) => (
+              <div key={i} className="stat-card">
+                <div className="label">{s.label}</div>
+                <div className="value" style={{ fontSize: 22 }}>
+                  {s.value}
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="card">

@@ -1,14 +1,21 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 const menuAdmin = [
-  { to: "/admin/dashboard", label: "Dashboard" },
+  { to: "/admin/dashboard", label: "Dashboard Sistem" },
+  { section: "MONITORING" },
+  { to: "/admin/monitoring-dashboard", label: "Dashboard Monitoring" },
+  { to: "/admin/monitoring-persediaan", label: "Monitoring Persediaan" },
+  { to: "/admin/monitoring-transaksi", label: "Monitoring Transaksi" },
+  { to: "/admin/monitoring-laporan", label: "Laporan & Ekspor" },
+  { section: "SISTEM" },
   { to: "/admin/pengguna", label: "Manajemen Pengguna" },
   { to: "/admin/master-obat", label: "Master Data Obat" },
   { to: "/admin/master-referensi", label: "Master Referensi" },
   { to: "/admin/konfigurasi", label: "Konfigurasi Sistem" },
-  { to: "/admin/audit-trail", label: "Jejak Audit" },
-  { to: "/admin/backup", label: "Pencadangan & Pemulihan" },
-  { to: "/admin/riwayat-login", label: "Riwayat Masuk" },
+  { to: "/admin/audit-trail", label: "Audit Trail" },
+  { to: "/admin/backup", label: "Backup & Restore" },
+  { to: "/admin/riwayat-login", label: "Riwayat Login" },
+  { section: "AKUN" },
   { to: "/admin/profile", label: "Profil Saya" },
 ];
 
@@ -18,31 +25,18 @@ const menuOperator = [
   { to: "/operator/permintaan", label: "Permintaan Kab/Kota" },
   { section: "TRANSAKSI" },
   { to: "/operator/penerimaan", label: "Penerimaan Obat" },
-  { to: "/operator/sbbk", label: "Distribusi" },
+  { to: "/operator/sbbk", label: "SBBK / Distribusi" },
   { section: "PERSEDIAAN" },
   { to: "/operator/stok", label: "Stok & Batch" },
   { to: "/operator/kartu-stok", label: "Kartu Stok" },
-  { to: "/operator/karantina", label: "Monitoring Kadaluwarsa" },
+  { to: "/operator/karantina", label: "Peringatan Kedaluwarsa" },
   { section: "PENYESUAIAN" },
-  { to: "/operator/penyesuaian", label: "Stok Opname & Penyesuaian" },
+  { to: "/operator/penyesuaian", label: "Stock Opname & Penyesuaian" },
   { section: "RIWAYAT" },
   { to: "/operator/riwayat-transaksi", label: "Riwayat Transaksi" },
   { section: "LAINNYA" },
   { to: "/operator/laporan", label: "Laporan" },
   { to: "/operator/profile", label: "Profil Saya" },
-];
-
-const menuPimpinan = [
-  { to: "/pimpinan/dashboard", label: "Beranda" },
-  { section: "MONITORING" },
-  { to: "/pimpinan/persediaan", label: "Monitoring Persediaan" },
-  { to: "/pimpinan/transaksi", label: "Monitoring Transaksi" },
-  { section: "LAPORAN" },
-  { to: "/pimpinan/laporan", label: "Laporan & Ekspor" },
-  { section: "AUDIT" },
-  { to: "/pimpinan/audit-trail", label: "Jejak Audit" },
-  { section: "AKUN" },
-  { to: "/pimpinan/profile", label: "Profil Saya" },
 ];
 
 const menuKabKota = [
@@ -61,30 +55,13 @@ export default function Layout() {
   const menu =
     session.role === "Operator"
       ? menuOperator
-      : session.role === "Pimpinan"
-        ? menuPimpinan
-        : session.role === "Kab/Kota"
-          ? menuKabKota
-          : menuAdmin;
+      : session.role === "Kab/Kota"
+        ? menuKabKota
+        : menuAdmin;
 
   const handleLogout = () => {
     localStorage.removeItem("session");
     navigate("/login");
-  };
-
-  const roleBadgeClass =
-    session.role === "Pimpinan"
-      ? "badge-info"
-      : session.role === "Operator"
-        ? "badge-warning"
-        : session.role === "Kab/Kota"
-          ? "badge-secondary"
-          : "badge-success";
-
-  const topbarTitle = () => {
-    if (session.role === "Pimpinan") return "Mode Pengawasan (Read-only)";
-    if (session.role === "Kab/Kota") return session.kabKota || "Kab/Kota";
-    return session.role || "Aplikasi";
   };
 
   return (
@@ -116,31 +93,11 @@ export default function Layout() {
             ),
           )}
         </nav>
-        <div className="sidebar-footer">
-          Role: {session.role || "-"}
-          {session.role === "Kab/Kota" && session.kabKota && (
-            <div style={{ marginTop: 4, fontSize: 10 }}>{session.kabKota}</div>
-          )}
-        </div>
+        <div className="sidebar-footer">Role: {session.role || "-"}</div>
       </aside>
       <div className="main-area">
         <header className="topbar">
-          <div
-            className="page-title"
-            style={{ display: "flex", alignItems: "center", gap: 10 }}
-          >
-            {topbarTitle()}
-            {session.role === "Pimpinan" && (
-              <span className="badge badge-info" style={{ fontSize: 10 }}>
-                READ-ONLY
-              </span>
-            )}
-            {session.role === "Kab/Kota" && (
-              <span className="badge badge-secondary" style={{ fontSize: 10 }}>
-                IFK
-              </span>
-            )}
-          </div>
+          <div className="page-title">{session.role || "Aplikasi"}</div>
           <div className="user-info">
             <span>{session.nama || "-"}</span>
             <div className="avatar">{(session.nama || "U").charAt(0)}</div>

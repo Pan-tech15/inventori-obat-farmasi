@@ -4,7 +4,7 @@
 import { mockObat } from "./mockData";
 
 // ============================================================
-// 1. DATA MOCK
+// DATA MOCK
 // ============================================================
 
 export const mockBatchObat = [
@@ -312,11 +312,14 @@ export const mockSBBK = [
     ],
   },
 ];
+
 export const mockStockOpname = [
   {
     id: 1,
     nomor: "SO-2026-10-001",
     periode: "Oktober 2026",
+    bulan: 10,
+    tahun: 2026,
     tanggal: "2026-10-31",
     status: "selesai",
     totalItem: 8,
@@ -425,6 +428,8 @@ export const mockStockOpname = [
     id: 2,
     nomor: "SO-2026-09-001",
     periode: "September 2026",
+    bulan: 9,
+    tahun: 2026,
     tanggal: "2026-09-30",
     status: "selesai",
     totalItem: 6,
@@ -472,49 +477,6 @@ export const mockAdjustment = [
     referensi: "ADJ-2026-003",
   },
 ];
-
-export const kategoriAlasanOpname = [
-  { value: "Rusak", label: "Rusak (pecah, retak, penyimpanan)" },
-  { value: "Kedaluwarsa", label: "Kedaluwarsa" },
-  { value: "Selisih Hitung", label: "Selisih Hitung" },
-  { value: "Salah Input", label: "Salah Input Penerimaan/Pengeluaran" },
-  { value: "Retur", label: "Retur dari IFK" },
-  { value: "Lainnya", label: "Lainnya" },
-];
-
-// ============================================================
-// Helper SBBK (draft & terbit di localStorage)
-// ============================================================
-export const getAllSBBK = () => {
-  const local = JSON.parse(localStorage.getItem("sbbkList") || "[]");
-  return [...mockSBBK, ...local].sort(
-    (a, b) => new Date(b.tanggal) - new Date(a.tanggal),
-  );
-};
-
-export const saveSBBK = (sbbk) => {
-  const stored = JSON.parse(localStorage.getItem("sbbkList") || "[]");
-  const idx = stored.findIndex((s) => s.id === sbbk.id);
-  if (idx >= 0) stored[idx] = sbbk;
-  else stored.unshift(sbbk);
-  localStorage.setItem("sbbkList", JSON.stringify(stored));
-};
-
-export const deleteSBBK = (id) => {
-  const stored = JSON.parse(localStorage.getItem("sbbkList") || "[]");
-  localStorage.setItem(
-    "sbbkList",
-    JSON.stringify(stored.filter((s) => s.id !== id)),
-  );
-};
-
-export const getSBBKById = (id) => {
-  return getAllSBBK().find((s) => s.id === Number(id));
-};
-
-export const hasSBBKForPermintaan = (permintaanId) => {
-  return getAllSBBK().some((s) => s.permintaanId === Number(permintaanId));
-};
 
 export const mockRiwayatTransaksi = [
   {
@@ -627,63 +589,6 @@ export const mockRiwayatTransaksi = [
   },
 ];
 
-// ============================================================
-// 2. HELPER FUNCTIONS (hanya SATU deklarasi per fungsi)
-// ============================================================
-
-// Mendapatkan jenis & program dari kode obat
-export const getObatInfo = (kodeObat) => {
-  const obat = mockObat.find((o) => o.kode === kodeObat);
-  return {
-    jenis: obat?.jenis || "-",
-    program: obat?.program || "-",
-  };
-};
-
-// Label gabungan untuk display
-export const getJenisProgramLabel = (jenis, program) => {
-  if (jenis === "Program") return `Program: ${program}`;
-  if (jenis === "Buffer") return "Buffer";
-  return "-";
-};
-
-// Lookup harga satuan dari kombinasi obatId + noBatch
-export const getHargaFromBatch = (obatId, noBatch) => {
-  const b = mockBatchObat.find(
-    (x) => x.obatId === obatId && x.noBatch === noBatch,
-  );
-  return b?.hargaSatuan || 0;
-};
-
-// Lookup jenis & program dari obatId
-export const getJenisByObatId = (obatId) => {
-  const o = mockObat.find((x) => x.id === obatId);
-  return o
-    ? { jenis: o.jenis, program: o.program }
-    : { jenis: "-", program: "-" };
-};
-
-// Opsi dropdown jenis-program
-export const jenisProgramOptions = [
-  { value: "Buffer", label: "Buffer" },
-  { value: "Program:TBC", label: "Program: TBC" },
-  { value: "Program:Malaria", label: "Program: Malaria" },
-  { value: "Program:HIV/AIDS", label: "Program: HIV/AIDS" },
-  { value: "Program:Kusta", label: "Program: Kusta" },
-  { value: "Program:Hepatitis", label: "Program: Hepatitis" },
-];
-
-// Cek apakah obat cocok dengan nilai filter jenis-program
-export const matchesJenisValue = (obat, jenisValue) => {
-  if (!jenisValue) return true;
-  if (jenisValue === "Buffer") return obat.jenis === "Buffer";
-  if (jenisValue.startsWith("Program:")) {
-    const prog = jenisValue.split(":")[1];
-    return obat.jenis === "Program" && obat.program === prog;
-  }
-  return true;
-};
-// Data permintaan kab/kota (mock awal; modul lengkap di Batch 2)
 export const mockPermintaan = [
   {
     id: 1,
@@ -743,44 +648,76 @@ export const mockPermintaan = [
       },
     ],
   },
-  {
-    id: 4,
-    nomorSurat: "PRM/MND/2026/002",
-    tanggal: "2026-11-01",
-    kabKota: "IFK Kota Manado",
-    status: "pending",
-    catatan:
-      "Kebutuhan TW4 2026 — pasien TBC meningkat, permintaan melebihi stok tersedia",
-    items: [
-      {
-        obatId: 4,
-        kodeObat: "OBT-004",
-        namaObat: "Rifampisin 450mg",
-        satuan: "Tablet",
-        jumlahDiminta: 1000,
-      },
-      {
-        obatId: 3,
-        kodeObat: "OBT-003",
-        namaObat: "Oralit 200ml",
-        satuan: "Sachet",
-        jumlahDiminta: 2000,
-      },
-      {
-        obatId: 1,
-        kodeObat: "OBT-001",
-        namaObat: "Parasetamol 500mg",
-        satuan: "Tablet",
-        jumlahDiminta: 3000,
-      },
-    ],
-  },
 ];
+
 // ============================================================
-// Helper: hitung status & warna berdasarkan sisa hari
-// Status bisnis hanya "normal" atau "expired".
-// Warna (danger/warning/caution/safe) hanya panduan visual.
+// HELPER: MASTER OBAT
 // ============================================================
+
+export const getObatInfo = (kodeObat) => {
+  const obat = mockObat.find((o) => o.kode === kodeObat);
+  return {
+    jenis: obat?.jenis || "-",
+    program: obat?.program || "-",
+  };
+};
+
+export const getJenisProgramLabel = (jenis, program) => {
+  if (jenis === "Program") return `Program: ${program}`;
+  if (jenis === "Buffer") return "Buffer";
+  return "-";
+};
+
+export const getHargaFromBatch = (obatId, noBatch) => {
+  const b = mockBatchObat.find(
+    (x) => x.obatId === obatId && x.noBatch === noBatch,
+  );
+  return b?.hargaSatuan || 0;
+};
+
+export const getJenisByObatId = (obatId) => {
+  const o = mockObat.find((x) => x.id === obatId);
+  return o
+    ? { jenis: o.jenis, program: o.program }
+    : { jenis: "-", program: "-" };
+};
+
+export const jenisProgramOptions = [
+  { value: "Buffer", label: "Buffer" },
+  { value: "Program:TBC", label: "Program: TBC" },
+  { value: "Program:Malaria", label: "Program: Malaria" },
+  { value: "Program:HIV/AIDS", label: "Program: HIV/AIDS" },
+  { value: "Program:Kusta", label: "Program: Kusta" },
+  { value: "Program:Hepatitis", label: "Program: Hepatitis" },
+];
+
+export const matchesJenisValue = (obat, jenisValue) => {
+  if (!jenisValue) return true;
+  if (jenisValue === "Buffer") return obat.jenis === "Buffer";
+  if (jenisValue.startsWith("Program:")) {
+    const prog = jenisValue.split(":")[1];
+    return obat.jenis === "Program" && obat.program === prog;
+  }
+  return true;
+};
+
+// ============================================================
+// HELPER: KATEGORI ALASAN
+// ============================================================
+
+export const kategoriAlasanOpname = [
+  { value: "Rusak", label: "Rusak (pecah, retak, penyimpanan)" },
+  { value: "Kedaluwarsa", label: "Kedaluwarsa" },
+  { value: "Selisih Hitung", label: "Selisih Hitung" },
+  { value: "Salah Input", label: "Salah Input Penerimaan/Pengeluaran" },
+  { value: "Retur", label: "Retur dari IFK" },
+  { value: "Lainnya", label: "Lainnya" },
+];
+
+// ============================================================
+// HELPER: EXPIRY (seragam 180/240 hari)
+// ============================================================
+
 export const getExpiryInfo = (batch) => {
   const d = Math.ceil((new Date(batch.expiry) - new Date()) / 86400000);
   if (d < 0) {
@@ -817,4 +754,73 @@ export const getExpiryInfo = (batch) => {
     color: "safe",
     badgeClass: "badge-success",
   };
+};
+
+// ============================================================
+// HELPER: SBBK (localStorage)
+// ============================================================
+
+export const getAllSBBK = () => {
+  const local = JSON.parse(localStorage.getItem("sbbkList") || "[]");
+  return [...mockSBBK, ...local].sort(
+    (a, b) => new Date(b.tanggal) - new Date(a.tanggal),
+  );
+};
+
+export const saveSBBK = (sbbk) => {
+  const stored = JSON.parse(localStorage.getItem("sbbkList") || "[]");
+  const idx = stored.findIndex((s) => s.id === sbbk.id);
+  if (idx >= 0) stored[idx] = sbbk;
+  else stored.unshift(sbbk);
+  localStorage.setItem("sbbkList", JSON.stringify(stored));
+};
+
+export const deleteSBBK = (id) => {
+  const stored = JSON.parse(localStorage.getItem("sbbkList") || "[]");
+  localStorage.setItem(
+    "sbbkList",
+    JSON.stringify(stored.filter((s) => s.id !== id)),
+  );
+};
+
+export const getSBBKById = (id) => {
+  return getAllSBBK().find((s) => s.id === Number(id));
+};
+
+export const hasSBBKForPermintaan = (permintaanId) => {
+  return getAllSBBK().some((s) => s.permintaanId === Number(permintaanId));
+};
+
+// ============================================================
+// HELPER: OPNAME (localStorage)
+// ============================================================
+
+export const getAllOpnames = () => {
+  const local = JSON.parse(localStorage.getItem("opnameList") || "[]");
+  return [...mockStockOpname, ...local].sort(
+    (a, b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0),
+  );
+};
+
+export const saveOpname = (opname) => {
+  const stored = JSON.parse(localStorage.getItem("opnameList") || "[]");
+  stored.unshift(opname);
+  localStorage.setItem("opnameList", JSON.stringify(stored));
+};
+
+// ============================================================
+// HELPER: ADJUSTMENT (localStorage)
+// ============================================================
+
+export const getAllAdjustments = () => {
+  const local = JSON.parse(localStorage.getItem("adjustmentList") || "[]");
+  return [...mockAdjustment, ...local].sort(
+    (a, b) => new Date(b.tanggal) - new Date(a.tanggal),
+  );
+};
+
+export const saveAdjustment = (adj) => {
+  const stored = JSON.parse(localStorage.getItem("adjustmentList") || "[]");
+  stored.unshift(adj);
+  localStorage.setItem("adjustmentList", JSON.stringify(stored));
 };

@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   mockBatchObat,
-  mockStockOpname,
-  mockAdjustment,
   getObatInfo,
   jenisProgramOptions,
   matchesJenisValue,
   kategoriAlasanOpname,
+  getAllOpnames,
+  getAllAdjustments,
+  saveOpname,
+  saveAdjustment,
 } from "../../data/mockOperator";
 import { mockObat } from "../../data/mockData";
 
@@ -31,9 +33,6 @@ const bulanList = [
 const currentYear = new Date().getFullYear();
 const currentMonth = new Date().getMonth() + 1;
 
-// ============================================================
-// HELPERS
-// ============================================================
 const buildOpnameRows = (filterJenis) => {
   return mockBatchObat
     .filter((b) => {
@@ -54,32 +53,6 @@ const buildOpnameRows = (filterJenis) => {
     }));
 };
 
-const getAllOpnames = () => {
-  const local = JSON.parse(localStorage.getItem("opnameList") || "[]");
-  return [...mockStockOpname, ...local].sort(
-    (a, b) => new Date(b.tanggal) - new Date(a.tanggal),
-  );
-};
-
-const getAllAdjustments = () => {
-  const local = JSON.parse(localStorage.getItem("adjustmentList") || "[]");
-  return [...mockAdjustment, ...local].sort(
-    (a, b) => new Date(b.tanggal) - new Date(a.tanggal),
-  );
-};
-
-const saveOpname = (opname) => {
-  const stored = JSON.parse(localStorage.getItem("opnameList") || "[]");
-  stored.unshift(opname);
-  localStorage.setItem("opnameList", JSON.stringify(stored));
-};
-
-const saveAdjustment = (adj) => {
-  const stored = JSON.parse(localStorage.getItem("adjustmentList") || "[]");
-  stored.unshift(adj);
-  localStorage.setItem("adjustmentList", JSON.stringify(stored));
-};
-
 const getSumberAdjustment = (adj) => {
   return adj.referensi && adj.referensi.startsWith("SO-")
     ? "Opname"
@@ -89,53 +62,16 @@ const getSumberAdjustment = (adj) => {
 // ============================================================
 // TAB 1: FORM STOCK OPNAME
 // ============================================================
-function FormOpname({ onSaved, activeDraftId, onDraftIdChange }) {
+function FormOpname({ onSaved }) {
   const [bulan, setBulan] = useState(currentMonth);
   const [tahun, setTahun] = useState(currentYear);
   const [filterJenis, setFilterJenis] = useState("");
   const [rows, setRows] = useState(() => buildOpnameRows(""));
   const [showFinalConfirm, setShowFinalConfirm] = useState(false);
 
-  // Load draft ketika activeDraftId berubah
   useEffect(() => {
-    if (!activeDraftId) return;
-    const drafts = JSON.parse(localStorage.getItem("opnameList") || "[]");
-    const draft = drafts.find((d) => d.id === activeDraftId);
-    if (!draft) return;
-    setBulan(draft.bulan || currentMonth);
-    setTahun(draft.tahun || currentYear);
-    setFilterJenis("");
-  }, [activeDraftId]);
-
-  // Rebuild rows + overlay draft values
-  useEffect(() => {
-    const base = buildOpnameRows(filterJenis);
-    if (!activeDraftId) {
-      setRows(base);
-      return;
-    }
-    const drafts = JSON.parse(localStorage.getItem("opnameList") || "[]");
-    const draft = drafts.find((d) => d.id === activeDraftId);
-    if (!draft) {
-      setRows(base);
-      return;
-    }
-    const items = draft.items || [];
-    const merged = base.map((r) => {
-      const di = items.find((x) => x.batchId === r.batchId);
-      if (di) {
-        return {
-          ...r,
-          stokFisik: di.stokFisik ?? "",
-          kategoriAlasan:
-            di.kategoriAlasan === "-" ? "" : di.kategoriAlasan || "",
-          alasan: di.alasan === "-" ? "" : di.alasan || "",
-        };
-      }
-      return r;
-    });
-    setRows(merged);
-  }, [filterJenis, activeDraftId]);
+    setRows(buildOpnameRows(filterJenis));
+  }, [filterJenis]);
 
   const updateRow = (idx, field, value) => {
     const next = [...rows];
@@ -164,75 +100,47 @@ function FormOpname({ onSaved, activeDraftId, onDraftIdChange }) {
   const canSaveDraft = filledCount > 0 && !hasNegative;
   const canFinalize = allFilled && allAlasanFilled && !hasNegative;
 
-  const generateNomor = (status, bulanVal, tahunVal) => {
-    const mm = String(bulanVal).padStart(2, "0");
+  const generateNomor = (status) => {
+    const mm = String(bulan).padStart(2, "0");
     const prefix = status === "draft" ? "SO-DRAFT" : "SO";
-    return `${prefix}-${tahunVal}-${mm}-${String(Math.floor(Math.random() * 900) + 100)}`;
+    return `${prefix}-${tahun}-${mm}-${String(Math.floor(Math.random() * 900) + 100)}`;
   };
 
   const persistOpname = (status) => {
-    const drafts = JSON.parse(localStorage.getItem("opnameList") || "[]");
-    const items = filledRows.map((r) => ({
-      batchId: r.batchId,
-      kodeObat: r.kodeObat,
-      namaObat: r.namaObat,
-      noBatch: r.noBatch,
-      satuan: r.satuan,
-      stokSistem: r.stokSistem,
-      stokFisik: Number(r.stokFisik),
-      selisih: Number(r.stokFisik) - r.stokSistem,
-      kategoriAlasan: r.kategoriAlasan || "-",
-      alasan: r.alasan || "-",
-    }));
-
-    const tanggal =
-      status === "selesai" ? new Date().toISOString().slice(0, 10) : "";
-    const nomor = generateNomor(status, bulan, tahun);
-
-    const baseData = {
+    const opname = {
+      id: Date.now(),
+      nomor: generateNomor(status),
       periode: `${bulanList[bulan - 1]} ${tahun}`,
       bulan,
       tahun,
-      tanggal,
+      tanggal:
+        status === "selesai" ? new Date().toISOString().slice(0, 10) : "",
       status,
       totalItem: totalCount,
       totalItemSelisih: selisihRows.length,
       totalVariance,
-      items,
+      items: filledRows.map((r) => ({
+        batchId: r.batchId,
+        kodeObat: r.kodeObat,
+        namaObat: r.namaObat,
+        noBatch: r.noBatch,
+        satuan: r.satuan,
+        stokSistem: r.stokSistem,
+        stokFisik: Number(r.stokFisik),
+        selisih: Number(r.stokFisik) - r.stokSistem,
+        kategoriAlasan: r.kategoriAlasan || "-",
+        alasan: r.alasan || "-",
+      })),
     };
-
-    let result;
-    if (activeDraftId) {
-      // Update existing draft
-      const idx = drafts.findIndex((d) => d.id === activeDraftId);
-      if (idx >= 0) {
-        result = {
-          ...drafts[idx],
-          ...baseData,
-          nomor: status === "selesai" ? nomor : drafts[idx].nomor,
-        };
-        drafts[idx] = result;
-      } else {
-        result = { id: Date.now(), nomor, ...baseData };
-        drafts.unshift(result);
-      }
-    } else {
-      result = { id: Date.now(), nomor, ...baseData };
-      drafts.unshift(result);
-      if (status === "draft") {
-        onDraftIdChange(result.id);
-      }
-    }
-
-    localStorage.setItem("opnameList", JSON.stringify(drafts));
+    saveOpname(opname);
 
     if (status === "selesai") {
-      result.items
+      opname.items
         .filter((it) => it.selisih !== 0)
         .forEach((it) => {
           saveAdjustment({
             id: Date.now() + Math.random(),
-            tanggal: result.tanggal,
+            tanggal: opname.tanggal,
             obatId: mockObat.find((o) => o.kode === it.kodeObat)?.id,
             namaObat: it.namaObat,
             noBatch: it.noBatch,
@@ -240,12 +148,12 @@ function FormOpname({ onSaved, activeDraftId, onDraftIdChange }) {
             jumlah: Math.abs(it.selisih),
             kategoriAlasan: it.kategoriAlasan,
             alasan: it.alasan,
-            referensi: result.nomor,
+            referensi: opname.nomor,
           });
         });
     }
 
-    return result;
+    return opname;
   };
 
   const handleSimpanDraft = () => {
@@ -256,8 +164,9 @@ function FormOpname({ onSaved, activeDraftId, onDraftIdChange }) {
     }
     const opname = persistOpname("draft");
     alert(
-      `Draft ${opname.nomor} tersimpan.\n${filledCount} dari ${totalCount} item terisi.\nStok BELUM diubah. Form tetap terbuka — Anda bisa melanjutkan kapan saja.`,
+      `Draft opname ${opname.nomor} tersimpan.\n${filledCount} dari ${totalCount} item terisi.\nStok BELUM diubah.`,
     );
+    setRows(buildOpnameRows(filterJenis));
     onSaved?.();
   };
 
@@ -286,43 +195,12 @@ function FormOpname({ onSaved, activeDraftId, onDraftIdChange }) {
       `Opname ${opname.nomor} difinalisasi.\n${selisihRows.length} item disesuaikan. Total variance: ${fmt(totalVariance)}.`,
     );
     setShowFinalConfirm(false);
-    onDraftIdChange(null);
     setRows(buildOpnameRows(filterJenis));
     onSaved?.();
   };
 
   return (
     <>
-      {activeDraftId && (
-        <div className="info-banner info" style={{ fontSize: 12 }}>
-          <strong>Melanjutkan draft.</strong> Data yang sudah diisi telah dimuat
-          kembali. Anda dapat melanjutkan pengisian atau memfinalisasi kapan
-          saja.
-          <button
-            className="btn btn-sm"
-            style={{ marginLeft: 12 }}
-            onClick={() => {
-              if (
-                !confirm(
-                  "Batalkan draft ini? Data yang tersimpan akan dihapus.",
-                )
-              )
-                return;
-              const drafts = JSON.parse(
-                localStorage.getItem("opnameList") || "[]",
-              );
-              const filtered = drafts.filter((d) => d.id !== activeDraftId);
-              localStorage.setItem("opnameList", JSON.stringify(filtered));
-              onDraftIdChange(null);
-              setRows(buildOpnameRows(filterJenis));
-              onSaved?.();
-            }}
-          >
-            Batalkan Draft
-          </button>
-        </div>
-      )}
-
       <div className="card">
         <div className="section-title">Buat Stock Opname Baru</div>
         <div className="form-grid">
@@ -331,7 +209,6 @@ function FormOpname({ onSaved, activeDraftId, onDraftIdChange }) {
             <select
               value={bulan}
               onChange={(e) => setBulan(Number(e.target.value))}
-              disabled={!!activeDraftId}
             >
               {bulanList.map((b, i) => (
                 <option key={i} value={i + 1}>
@@ -345,7 +222,6 @@ function FormOpname({ onSaved, activeDraftId, onDraftIdChange }) {
             <select
               value={tahun}
               onChange={(e) => setTahun(Number(e.target.value))}
-              disabled={!!activeDraftId}
             >
               {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
                 <option key={y} value={y}>
@@ -580,7 +456,7 @@ function FormOpname({ onSaved, activeDraftId, onDraftIdChange }) {
             onClick={handleSimpanDraft}
             disabled={!canSaveDraft}
           >
-            {activeDraftId ? "Perbarui Draft" : "Simpan Draft"}
+            Simpan Draft
           </button>
           <button
             className="btn btn-primary"
@@ -836,7 +712,7 @@ function FormPenyesuaian({ prefill, onSaved }) {
               onChange={(e) => setForm({ ...form, referensi: e.target.value })}
               placeholder={
                 referensiWajib
-                  ? "Nomor dokumen asli (wajib untuk kategori ini)"
+                  ? "Nomor dokumen asli (wajib)"
                   : "Nomor dokumen pendukung"
               }
               style={
@@ -1000,7 +876,6 @@ function FormPenyesuaian({ prefill, onSaved }) {
                 style={{ marginTop: 12, fontSize: 12 }}
               >
                 Setelah disimpan, stok berubah permanen dan tercatat di riwayat.
-                Tidak bisa dihapus.
               </div>
             </div>
             <div className="modal-footer">
@@ -1021,8 +896,8 @@ function FormPenyesuaian({ prefill, onSaved }) {
 // ============================================================
 // RIWAYAT GABUNGAN
 // ============================================================
-function RiwayatGabungan({ refreshKey, onLanjutkanDraft }) {
-  const [filterJenis, setFilterJenis] = useState("semua"); // semua | opname | penyesuaian
+function RiwayatGabungan({ refreshKey }) {
+  const [filterJenis, setFilterJenis] = useState("semua");
   const [search, setSearch] = useState("");
   const [detailOpname, setDetailOpname] = useState(null);
 
@@ -1222,21 +1097,12 @@ function RiwayatGabungan({ refreshKey, onLanjutkanDraft }) {
                           </span>
                         </td>
                         <td>
-                          {o.status === "draft" ? (
-                            <button
-                              className="btn btn-sm btn-primary"
-                              onClick={() => onLanjutkanDraft?.(o)}
-                            >
-                              Lanjutkan
-                            </button>
-                          ) : (
-                            <button
-                              className="btn btn-sm"
-                              onClick={() => setDetailOpname(o)}
-                            >
-                              Detail
-                            </button>
-                          )}
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => setDetailOpname(o)}
+                          >
+                            Detail
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -1420,7 +1286,6 @@ export default function PenyesuaianStok() {
   const [params] = useSearchParams();
   const [activeTab, setActiveTab] = useState(params.get("tab") || "opname");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeDraftId, setActiveDraftId] = useState(null);
 
   const prefill = {
     batchId: params.get("batchId") || "",
@@ -1429,16 +1294,6 @@ export default function PenyesuaianStok() {
   };
 
   const handleSaved = () => setRefreshKey((k) => k + 1);
-
-  const handleLanjutkanDraft = (draft) => {
-    setActiveDraftId(draft.id);
-    setActiveTab("opname");
-  };
-
-  const handleDraftIdChange = (id) => {
-    setActiveDraftId(id);
-    setRefreshKey((k) => k + 1);
-  };
 
   return (
     <>
@@ -1469,26 +1324,17 @@ export default function PenyesuaianStok() {
         </div>
         <div style={{ fontSize: 12, color: "var(--gray-600)", marginTop: 8 }}>
           {activeTab === "opname"
-            ? "Verifikasi menyeluruh seluruh batch pada periode tertentu. Draft bisa disimpan dan dilanjutkan kapan saja."
+            ? "Verifikasi menyeluruh seluruh batch pada periode tertentu. Draft bisa disimpan sebelum finalisasi."
             : "Koreksi terarah satu batch dengan penyebab yang sudah diketahui (rusak, salah input, kedaluwarsa, retur, dll)."}
         </div>
       </div>
 
-      {activeTab === "opname" && (
-        <FormOpname
-          onSaved={handleSaved}
-          activeDraftId={activeDraftId}
-          onDraftIdChange={handleDraftIdChange}
-        />
-      )}
+      {activeTab === "opname" && <FormOpname onSaved={handleSaved} />}
       {activeTab === "penyesuaian" && (
         <FormPenyesuaian prefill={prefill} onSaved={handleSaved} />
       )}
 
-      <RiwayatGabungan
-        key={refreshKey}
-        onLanjutkanDraft={handleLanjutkanDraft}
-      />
+      <RiwayatGabungan key={refreshKey} />
     </>
   );
 }

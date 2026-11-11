@@ -3,17 +3,18 @@ import { mockObat } from "../../data/mockData";
 import {
   mockBatchObat,
   mockPenerimaan,
-  mockStockOpname,
-  mockRiwayatTransaksi,
-  mockAdjustment,
-  getExpiryInfo,
   getAllSBBK,
+  getAllOpnames,
+  getAllAdjustments,
+  mockRiwayatTransaksi,
+  getExpiryInfo,
 } from "../../data/mockOperator";
+import { exportCSV, exportPDFViaPrint } from "../../utils/export";
 
+const daysUntil = (s) => Math.ceil((new Date(s) - new Date()) / 86400000);
 const fmt = (n) => Number(n || 0).toLocaleString("id-ID");
 const rupiah = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
-const jenisOf = (kodeObat) =>
-  mockObat.find((o) => o.kode === kodeObat)?.jenis || "-";
+const jenisOf = (kode) => mockObat.find((o) => o.kode === kode)?.jenis || "-";
 
 const LAPORAN = [
   {
@@ -46,14 +47,19 @@ const LAPORAN = [
       },
       { key: "satuan", label: "Satuan" },
       { key: "jenis", label: "Jenis" },
+      { key: "pabrik", label: "Pabrik" },
       {
         key: "hargaSatuan",
         label: "Harga Satuan",
         align: "right",
         render: (r) => rupiah(r.hargaSatuan),
       },
-      { key: "pabrik", label: "Pabrik" },
-      { key: "sumberAnggaran", label: "Sumber Anggaran" },
+      {
+        key: "nilai",
+        label: "Nilai Stok",
+        align: "right",
+        render: (r) => rupiah(r.stok * r.hargaSatuan),
+      },
     ],
     summary: (rows) => [
       { label: "Jumlah Batch", value: fmt(rows.length) },
@@ -159,7 +165,7 @@ const LAPORAN = [
         key: "totalItem",
         label: "Jumlah Item",
         align: "right",
-        render: (r) => r.items.length,
+        render: (r) => r.items?.length || 0,
       },
       {
         key: "cetakUlangKe",
@@ -172,7 +178,7 @@ const LAPORAN = [
       { label: "Jumlah SBBK", value: fmt(rows.length) },
       {
         label: "Total Item Didistribusikan",
-        value: fmt(rows.reduce((s, r) => s + r.items.length, 0)),
+        value: fmt(rows.reduce((s, r) => s + (r.items?.length || 0), 0)),
       },
     ],
   },
@@ -226,11 +232,11 @@ const LAPORAN = [
     dateField: "tanggal",
     useJenisFilter: false,
     build: () =>
-      mockStockOpname.flatMap((so) =>
-        so.items.map((it) => ({
+      getAllOpnames().flatMap((so) =>
+        (so.items || []).map((it) => ({
           ...it,
           periode: so.periode,
-          tanggal: so.tanggal,
+          tanggal: so.tanggal || "-",
         })),
       ),
     columns: [
@@ -276,7 +282,7 @@ const LAPORAN = [
     label: "Laporan Penyesuaian Stok",
     dateField: "tanggal",
     useJenisFilter: false,
-    build: () => mockAdjustment,
+    build: () => getAllAdjustments(),
     columns: [
       { key: "tanggal", label: "Tanggal" },
       { key: "referensi", label: "Referensi" },
@@ -326,50 +332,38 @@ export default function Laporan() {
   const config = LAPORAN.find((l) => l.id === jenis);
   const allRows = useMemo(() => config.build(), [config]);
 
-  const rows = useMemo(
-    () =>
-      allRows.filter((r) => {
-        if (
-          config.useJenisFilter &&
-          filterJenisObat &&
-          r.jenis !== filterJenisObat
-        )
-          return false;
-        if (config.dateField && r[config.dateField]) {
-          const tgl = String(r[config.dateField]).slice(0, 10);
-          if (periodeAwal && tgl < periodeAwal) return false;
-          if (periodeAkhir && tgl > periodeAkhir) return false;
-        }
-        return true;
-      }),
-    [allRows, config, filterJenisObat, periodeAwal, periodeAkhir],
-  );
+  const rows = useMemo(() => {
+    return allRows.filter((r) => {
+      if (
+        config.useJenisFilter &&
+        filterJenisObat &&
+        r.jenis !== filterJenisObat
+      )
+        return false;
+      if (config.dateField && r[config.dateField]) {
+        const tgl = String(r[config.dateField]).slice(0, 10);
+        if (periodeAwal && tgl < periodeAwal) return false;
+        if (periodeAkhir && tgl > periodeAkhir) return false;
+      }
+      return true;
+    });
+  }, [allRows, config, filterJenisObat, periodeAwal, periodeAkhir]);
 
   const summary = config.summary(rows);
 
-  const handleEkspor = () => {
-    if (config.columns) {
-      const header = config.columns.map((c) => `"${c.label}"`).join(";");
-      const body = rows
-        .map((r) =>
-          config.columns
-            .map((c) => {
-              const raw = c.render ? c.render(r) : r[c.key];
-              const text = typeof raw === "object" ? (r[c.key] ?? "") : raw;
-              return `"${String(text).replace(/"/g, '""')}"`;
-            })
-            .join(";"),
-        )
-        .join("\n");
-      const csv = `\uFEFF${header}\n${body}`;
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${config.id}_${periodeAwal}_sd_${periodeAkhir}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
+  const handleEksporCSV = () => {
+    const headers = config.columns.map((c) => c.label);
+    const data = rows.map((r) =>
+      config.columns.map((c) => {
+        const raw = c.render ? c.render(r) : r[c.key];
+        return typeof raw === "object" ? (r[c.key] ?? "") : raw;
+      }),
+    );
+    exportCSV(
+      `${config.id}_${periodeAwal}_sd_${periodeAkhir}.csv`,
+      headers,
+      data,
+    );
   };
 
   return (
@@ -443,10 +437,17 @@ export default function Laporan() {
           </button>
           <button
             className="btn"
-            onClick={handleEkspor}
-            disabled={!preview || rows.length === 0}
+            onClick={handleEksporCSV}
+            disabled={rows.length === 0}
           >
-            Ekspor CSV
+            Ekspor Excel (CSV)
+          </button>
+          <button
+            className="btn"
+            onClick={exportPDFViaPrint}
+            disabled={rows.length === 0}
+          >
+            Ekspor PDF
           </button>
         </div>
 
@@ -461,9 +462,9 @@ export default function Laporan() {
 
       {preview && (
         <>
-          <div className="info-banner warning">
-            <strong>PREVIEW — DATA SIMULASI.</strong> Angka pada tabel ini
-            berasal dari data contoh, bukan basis data produksi.
+          <div className="info-banner warning no-print">
+            <strong>PREVIEW — DATA SIMULASI.</strong> Angka dari data contoh,
+            bukan basis data produksi.
           </div>
 
           <div className="stat-grid">
@@ -482,7 +483,6 @@ export default function Laporan() {
               style={{
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center",
                 marginBottom: 12,
               }}
             >
