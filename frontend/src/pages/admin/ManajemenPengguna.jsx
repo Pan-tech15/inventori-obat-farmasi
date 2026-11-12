@@ -8,7 +8,6 @@ const emptyForm = {
   username: "",
   email: "",
   role: "Operator",
-  scope: "both",
   status: "Aktif",
 };
 
@@ -47,7 +46,6 @@ export default function ManajemenPengguna() {
       username: user.username,
       email: user.email,
       role: user.role,
-      scope: user.scope,
       status: user.status,
     });
     setShowForm(true);
@@ -59,7 +57,13 @@ export default function ManajemenPengguna() {
       return;
     }
     if (editing) {
-      setUsers(users.map((u) => (u.id === editing.id ? { ...u, ...form } : u)));
+      setUsers(
+        users.map((u) =>
+          u.id === editing.id
+            ? { ...u, nama: form.nama, username: form.username, email: form.email, role: form.role, status: form.status }
+            : u
+        )
+      );
     } else {
       setUsers([...users, { id: Date.now(), ...form }]);
     }
@@ -68,8 +72,7 @@ export default function ManajemenPengguna() {
 
   const handleToggleStatus = (user) => {
     setConfirmAction({
-      title:
-        user.status === "Aktif" ? "Nonaktifkan Pengguna" : "Aktifkan Pengguna",
+      title: user.status === "Aktif" ? "Nonaktifkan Pengguna" : "Aktifkan Pengguna",
       message:
         user.status === "Aktif"
           ? `Nonaktifkan ${user.nama}? Pengguna tidak bisa login, tetapi riwayatnya tetap tersimpan. Pengguna tidak dihapus permanen.`
@@ -78,9 +81,9 @@ export default function ManajemenPengguna() {
         setUsers(
           users.map((u) =>
             u.id === user.id
-              ? { ...u, status: user.status === "Aktif" ? "Nonaktif" : "Aktif" }
-              : u,
-          ),
+              ? { ...u, status: u.status === "Aktif" ? "Nonaktif" : "Aktif" }
+              : u
+          )
         );
         setConfirmAction(null);
       },
@@ -92,14 +95,9 @@ export default function ManajemenPengguna() {
       <div className="page-header">
         <div>
           <h2>Manajemen Pengguna</h2>
-          <p>
-            Kelola akun, role, dan data scope pengguna. Pengguna tidak dihapus
-            permanen — hanya dinonaktifkan.
-          </p>
+          <p>Kelola akun dan role pengguna. Pengguna tidak dihapus permanen — hanya dinonaktifkan.</p>
         </div>
-        <button className="btn btn-primary" onClick={openTambah}>
-          + Tambah Pengguna
-        </button>
+        <button className="btn btn-primary" onClick={openTambah}>+ Tambah Pengguna</button>
       </div>
 
       <div className="card">
@@ -109,27 +107,19 @@ export default function ManajemenPengguna() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-          >
+          <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
             <option value="">Semua Role</option>
-            <option>Admin</option>
-            <option>Operator</option>
-            <option>Pimpinan</option>
+            <option value="Admin">Admin</option>
+            <option value="Operator">Operator</option>
+            <option value="Kab/Kota">Kab/Kota</option>
           </select>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="">Semua Status</option>
-            <option>Aktif</option>
-            <option>Nonaktif</option>
+            <option value="Aktif">Aktif</option>
+            <option value="Nonaktif">Nonaktif</option>
           </select>
           <span className="spacer" />
-          <span style={{ fontSize: 12, color: "var(--gray-600)" }}>
-            {filtered.length} pengguna
-          </span>
+          <span style={{ fontSize: 12, color: "var(--gray-600)" }}>{filtered.length} pengguna</span>
         </div>
 
         <div className="table-wrap">
@@ -141,7 +131,6 @@ export default function ManajemenPengguna() {
                 <th>Username</th>
                 <th>Email</th>
                 <th>Role</th>
-                <th>Data Scope</th>
                 <th>Status</th>
                 <th>Aksi</th>
               </tr>
@@ -149,10 +138,8 @@ export default function ManajemenPengguna() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>
-                    <div className="empty-state">
-                      Tidak ada pengguna yang sesuai filter.
-                    </div>
+                  <td colSpan={7}>
+                    <div className="empty-state">Tidak ada pengguna yang sesuai filter.</div>
                   </td>
                 </tr>
               ) : (
@@ -160,33 +147,19 @@ export default function ManajemenPengguna() {
                   <tr key={u.id}>
                     <td>{i + 1}</td>
                     <td>{u.nama}</td>
-                    <td>
-                      <code>{u.username}</code>
-                    </td>
+                    <td><code>{u.username}</code></td>
                     <td>{u.email}</td>
+                    <td><span className="badge badge-info">{u.role}</span></td>
                     <td>
-                      <span className="badge badge-info">{u.role}</span>
-                    </td>
-                    <td>{u.scope === "-" ? "-" : u.scope}</td>
-                    <td>
-                      <span
-                        className={`badge ${u.status === "Aktif" ? "badge-success" : "badge-gray"}`}
-                      >
+                      <span className={`badge ${u.status === "Aktif" ? "badge-success" : "badge-gray"}`}>
                         {u.status}
                       </span>
                     </td>
                     <td>
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => openEdit(u)}
-                        style={{ marginRight: 6 }}
-                      >
+                      <button className="btn btn-sm" onClick={() => openEdit(u)} style={{ marginRight: 6 }}>
                         Edit
                       </button>
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => handleToggleStatus(u)}
-                      >
+                      <button className="btn btn-sm" onClick={() => handleToggleStatus(u)}>
                         {u.status === "Aktif" ? "Nonaktifkan" : "Aktifkan"}
                       </button>
                     </td>
@@ -204,84 +177,39 @@ export default function ManajemenPengguna() {
           onClose={() => setShowForm(false)}
           footer={
             <>
-              <button className="btn" onClick={() => setShowForm(false)}>
-                Batal
-              </button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                Simpan
-              </button>
+              <button className="btn" onClick={() => setShowForm(false)}>Batal</button>
+              <button className="btn btn-primary" onClick={handleSave}>Simpan</button>
             </>
           }
         >
           <div className="form-grid">
             <div className="form-group">
               <label>Nama Lengkap *</label>
-              <input
-                value={form.nama}
-                onChange={(e) => setForm({ ...form, nama: e.target.value })}
-              />
+              <input value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} />
             </div>
             <div className="form-group">
               <label>Username *</label>
-              <input
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-              />
+              <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
             </div>
             <div className="form-group">
               <label>Email</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
             <div className="form-group">
               <label>Role</label>
-              <select
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
-              >
-                <option>Admin</option>
-                <option>Operator</option>
-                <option>Pimpinan</option>
+              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                <option value="Admin">Admin</option>
+                <option value="Operator">Operator</option>
+                <option value="Kab/Kota">Kab/Kota</option>
               </select>
             </div>
-            {form.role === "Operator" && (
-              <div className="form-group">
-                <label>Data Scope</label>
-                <select
-                  value={form.scope}
-                  onChange={(e) => setForm({ ...form, scope: e.target.value })}
-                >
-                  <option value="program">Program</option>
-                  <option value="buffer">Buffer</option>
-                  <option value="both">Program + Buffer</option>
-                </select>
-              </div>
-            )}
             <div className="form-group">
               <label>Status</label>
-              <select
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              >
-                <option>Aktif</option>
-                <option>Nonaktif</option>
+              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                <option value="Aktif">Aktif</option>
+                <option value="Nonaktif">Nonaktif</option>
               </select>
             </div>
-            {!editing && (
-              <div className="form-group full">
-                <label>
-                  Password Awal (otomatis dikirim via email — placeholder)
-                </label>
-                <input
-                  type="text"
-                  value="Password default: password123"
-                  disabled
-                />
-              </div>
-            )}
           </div>
         </Modal>
       )}

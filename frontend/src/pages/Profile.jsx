@@ -47,25 +47,13 @@ export default function Profile() {
             <label>Role</label>
             <input value={session.role || "-"} disabled />
           </div>
-          <div className="form-group">
-            <label>Data Scope</label>
-            <input value={session.scope || "-"} disabled />
-          </div>
         </div>
       </div>
 
       <div className="card">
         <h3 style={{ fontSize: 15, marginBottom: 16 }}>Ubah Password</h3>
         {msg && (
-          <div
-            style={{
-              background: "var(--gray-100)",
-              padding: 10,
-              borderRadius: 8,
-              marginBottom: 12,
-              fontSize: 13,
-            }}
-          >
+          <div style={{ background: "var(--gray-100)", padding: 10, borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
             {msg}
           </div>
         )}
@@ -73,34 +61,18 @@ export default function Profile() {
           <div className="form-grid">
             <div className="form-group full">
               <label>Password Lama</label>
-              <input
-                type="password"
-                value={oldPass}
-                onChange={(e) => setOldPass(e.target.value)}
-              />
+              <input type="password" value={oldPass} onChange={(e) => setOldPass(e.target.value)} />
             </div>
             <div className="form-group">
               <label>Password Baru</label>
-              <input
-                type="password"
-                value={newPass}
-                onChange={(e) => setNewPass(e.target.value)}
-              />
+              <input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} />
             </div>
             <div className="form-group">
               <label>Konfirmasi Password Baru</label>
-              <input
-                type="password"
-                value={confirmPass}
-                onChange={(e) => setConfirmPass(e.target.value)}
-              />
+              <input type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} />
             </div>
           </div>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ marginTop: 16 }}
-          >
+          <button type="submit" className="btn btn-primary" style={{ marginTop: 16 }}>
             Simpan Password
           </button>
         </form>
